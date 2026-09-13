@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Saved</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/saved_icon_3x.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #161616;
+    --panel: rgba(28, 28, 28, 0.85);
+    --panel-2: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.12);
+    --border-hover: rgba(255, 255, 255, 0.25);
+    --text: #f0f0f0;
+    --text-dim: #999999;
+    --accent: #ffffff;
+    --accent-soft: rgba(255, 255, 255, 0.15);
+    --grid-dot: rgba(255, 255, 255, 0.06);
+    --tile-bg: #222222;
+    --shadow-base: rgba(0, 0, 0, 0.6);
+    --shadow-soft: rgba(0, 0, 0, 0.3);
+  }
+
+  body.light-mode {
+    color-scheme: light;
+    --ink: #f0f0f0;
+    --panel: rgba(255, 255, 255, 0.85);
+    --panel-2: rgba(0, 0, 0, 0.05);
+    --border: rgba(0, 0, 0, 0.1);
+    --border-hover: rgba(0, 0, 0, 0.2);
+    --text: #111111;
+    --text-dim: #777777;
+    --accent: #000000;
+    --accent-soft: rgba(0, 0, 0, 0.08);
+    --grid-dot: rgba(0, 0, 0, 0.06);
+    --tile-bg: #e0e0e0;
+    --shadow-base: rgba(0, 0, 0, 0.1);
+    --shadow-soft: rgba(0, 0, 0, 0.05);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background: var(--ink); color:var(--text);
+    font-family:'Inter',system-ui,sans-serif; font-size:12.5px;
+    overflow:hidden; transition: background-color 0.4s ease, color 0.4s ease;
+    user-select: none; -webkit-user-select: none;
+  }
+  button, input, select{ font-family:inherit; font-size:inherit; color:inherit; }
+  button{ cursor:pointer; }
+  ::selection{ background:var(--accent-soft); }
+  :focus-visible{ outline:1px solid var(--accent); outline-offset:2px; }
+
+  .app{ display:flex; flex-direction:column; height:100vh; position:relative; }
+
+  /* ---------- Top Bar & Tabs ---------- */
+  .top-container {
+    flex: none; display: flex; flex-direction: column;
+    border-bottom: 1px solid var(--border); background: var(--panel);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    z-index: 50; transition: background-color 0.4s, border-color 0.4s;
+  }
+  
+  .topbar{ display:flex; align-items:center; gap:8px; padding:0 24px; height:56px; }
+  
+  .brand{ display: flex; align-items: center; flex: none; }
+  .brand img { height: 24px; width: auto; object-fit: contain; }
+  .brand .logo-light { display: none; }
+  body.light-mode .brand .logo-dark { display: none; }
+  body.light-mode .brand .logo-light { display: block; }
+  
+  .titlefield{
+    background:transparent; border:1px solid transparent; color:var(--text);
+    font-size:13px; font-weight:400; padding:4px 8px; border-radius:4px;
+    min-width:130px; max-width:260px; transition: all 0.2s;
+  }
+  .titlefield:hover, .titlefield:focus{ border-color:var(--border-hover); background:var(--panel-2); }
+  .save-state{ font-size:11px; color:var(--text-dim); flex:none; font-weight: 300; }
+  .save-state.dirty::before{ content:"● "; color:var(--text-dim); }
+  .spacer{ flex:1; }
+
+  .btn{
+    background:transparent; border:1px solid transparent; color:var(--text);
+    padding:6px 12px; border-radius:6px; font-weight:400; transition:all .2s;
+    display: flex; align-items: center; gap: 6px; font-size:12.5px;
+  }
+  .btn:hover{ background: var(--panel-2); }
+  .btn.outlined { border-color: var(--border); }
+  .btn.outlined:hover { border-color: var(--border-hover); }
+  .btn.primary{ background:var(--accent); color:var(--ink); font-weight: 500; }
+  .btn.primary:hover{ opacity: 0.85; }
+  .btn:disabled{ opacity: 0.3; cursor: not-allowed; color: var(--text-dim); }
+  
+  .icon-btn { font-size: 14px; padding: 6px; display: flex; align-items: center; justify-content: center; }
+  .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; }
+
+  .tab-bar {
+    display: flex; align-items: center; gap: 4px; padding: 0 16px 8px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+    border-radius: 6px; background: transparent; color: var(--text-dim);
+    font-size: 12px; cursor: pointer; border: 1px solid transparent;
+    transition: all 0.2s; max-width: 180px; white-space: nowrap;
+  }
+  .tab:hover { background: var(--panel-2); color: var(--text); }
+  .tab.active { background: var(--panel-2); color: var(--text); border-color: var(--border); font-weight: 500; }
+  .tab-close {
+    background: transparent; border: none; color: inherit; font-size: 14px;
+    line-height: 1; padding: 2px 4px; border-radius: 4px; opacity: 0.6; display: flex; align-items: center; justify-content: center;
+  }
+  .tab-close svg { width: 12px; height: 12px; }
+  .tab-close:hover { opacity: 1; background: var(--border-hover); color: var(--text); }
+  .add-tab-btn {
+    background: transparent; border: 1px dashed var(--border); color: var(--text-dim);
+    border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all 0.2s;
+  }
+  .add-tab-btn:hover { border-color: var(--text); color: var(--text); }
+
+  .menu-wrap{ position:relative; flex:none; }
+  .menu{
+    position:absolute; top:calc(100% + 8px); right:0; min-width:200px;
+    background:var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border:1px solid var(--border); border-radius:8px;
+    padding:6px; display:none; flex-direction:column; gap:2px; z-index:70;
+    box-shadow:0 16px 40px var(--shadow-base); max-height: 360px; overflow-y: auto;
+  }
+  .menu.open{ display:flex; }
+  .menu button{
+    background:transparent; border:none; text-align:left; padding:8px 12px;
+    border-radius:4px; color:var(--text); font-size:12.5px; font-weight: 400; transition: background 0.15s;
+  }
+  .menu button:hover{ background:var(--panel-2); }
+  .menu .menu-meta{ font-size:10.5px; color:var(--text-dim); padding:4px 12px 6px; text-transform: uppercase; letter-spacing: 1px;}
+  .menu hr{ border:none; border-top:1px solid var(--border); margin:4px 2px; }
+
+  /* ---------- Canvas Stage & Artboards ---------- */
+  .stage{
+    flex:1; overflow:hidden; position:relative; cursor:default;
+    background-color: transparent;
+    background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .stage.is-panning { cursor: grabbing !important; }
+  .stage.space-down { cursor: grab !important; }
+
+  .viewport-canvas{ position:absolute; transform-origin: 0 0; }
+
+  .artboard-wrapper {
+    position: absolute; display: flex; flex-direction: column; gap: 12px;
+    transition: opacity 0.2s;
+  }
+  .artboard-header { 
+    display: flex; align-items: center; justify-content: space-between; 
+    cursor: grab; padding: 4px; border-radius: 6px; transition: background 0.2s;
+  }
+  .artboard-header:active { cursor: grabbing; }
+  .artboard-header:hover { background: var(--panel-2); }
+
+  .artboard-title {
+    background: transparent; border: 1px solid transparent; color: var(--text-dim);
+    font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px; padding: 4px 8px; border-radius: 4px;
+    transition: all 0.2s; outline: none; width: 200px; cursor: text;
+  }
+  .artboard-wrapper.active .artboard-title { color: var(--accent); }
+  .artboard-title:hover, .artboard-title:focus { background: var(--panel-2); border-color: var(--border); color: var(--text); }
+  
+  .artboard-delete {
+    background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: all 0.2s;
+  }
+  .artboard-wrapper:hover .artboard-delete { opacity: 1; }
+  .artboard-delete:hover { background: rgba(255,0,0,0.2); color: #ff4444; }
+
+  .board{
+    display:grid; box-shadow:0 24px 80px var(--shadow-soft); position:relative;
+    box-sizing: border-box; align-content: start; grid-auto-flow: dense;
+    border: 1px solid transparent; transition: border-color 0.2s;
+  }
+  .artboard-wrapper.active .board { border-color: var(--border-hover); }
+  
+  .tile{
+    position:relative; overflow:hidden; background:transparent; cursor:grab; width: 100%; box-sizing: border-box; 
+  }
+  
+  .tile.is-selected { box-shadow: 0 0 0 2px var(--accent); z-index: 10; }
+  .tile:active{ cursor:grabbing; }
+  .tile.dragging { opacity: 0.3; }
+  .tile.cropping{ cursor:ns-resize; }
+  .tile.drag-over::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    border: 2px dashed var(--accent); background: var(--accent-soft);
+    pointer-events: none; z-index: 30;
+  }
+  
+  .img-layer {
+    position: absolute; top:-1px; left:-1px; right:-1px; bottom:-1px;
+    background-size: cover; background-repeat: no-repeat; pointer-events: none;
+  }
+
+  .color-tile-layer {
+    position: absolute; top:-1px; left:-1px; right:-1px; bottom:-1px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .color-tile-layer input[type="color"] {
+    position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 10;
+  }
+  .color-tile-badge {
+    background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); color: #fff;
+    padding: 6px 10px; border-radius: 6px; font-family: 'Space Grotesk', monospace;
+    font-size: 12px; font-weight: 500; letter-spacing: 1px; z-index: 5; pointer-events: none;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .text-tile-layer {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 16px; overflow: hidden; word-break: break-word;
+    font-family: 'Space Grotesk', sans-serif; line-height: 1.3; outline: none; cursor: text;
+    box-shadow: inset 0 -15px 25px rgba(0,0,0,0.05);
+  }
+  .text-tile-layer::selection { background: rgba(0, 120, 255, 0.4); }
+  .text-tile-layer *::selection { background: rgba(0, 120, 255, 0.4); }
+
+  .text-tile-controls{
+    position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px;
+    background: var(--panel); backdrop-filter: blur(4px); border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px; opacity: 0; transition: opacity .15s; z-index: 20;
+  }
+  .tile:hover .text-tile-controls, .tile.is-selected .text-tile-controls { opacity: 1; }
+  .text-tile-controls button{
+    background: transparent; border: none; color: var(--text); width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; padding: 0;
+  }
+  .text-tile-controls button:hover{ background: var(--panel-2); }
+  .text-tile-controls span{ font-size: 10.5px; color: var(--text-dim); min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+  
+  .text-color-picker { 
+    width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; 
+    cursor: pointer; background: transparent; outline: none;
+  }
+  .text-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+  .text-color-picker::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 4px; }
+
+  .tile .remove{
+    position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%;
+    background:var(--panel); backdrop-filter: blur(4px); border:1px solid var(--border); 
+    color:var(--text); font-size:12px; display:flex; align-items:center; justify-content:center; 
+    opacity:0; transition:opacity .15s; z-index: 20; padding: 0;
+  }
+  .tile .remove svg { width: 12px; height: 12px; }
+  .tile:hover .remove{ opacity:1; }
+
+  .empty-state{
+    grid-column:1/-1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; padding:60px 20px; text-align:center;
+    border:1px dashed var(--border); border-radius:6px; color:var(--text-dim); width: 100%; min-height: 240px;
+  }
+  .empty-state.drag-over{ border-color:var(--accent); background:var(--accent-soft); }
+  .empty-state .big{ font-family:'Space Grotesk',sans-serif; font-size:13px; color:var(--text); font-weight:500; letter-spacing: 1px; text-transform: uppercase;}
+
+  /* ---------- Side Panels & Dock ---------- */
+  .left-panel {
+    position: absolute; top: 50%; left: 24px; transform: translateY(-50%);
+    background: var(--panel); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+    display: flex; flex-direction: column; gap: 10px; z-index: 40;
+    box-shadow: 0 20px 50px var(--shadow-base); transition: background-color 0.4s, border-color 0.4s;
+  }
+  .left-panel .btn-add { 
+    padding: 10px; display: flex; align-items: center; justify-content: center; 
+    width: 44px; height: 44px; border-radius: 8px; background: transparent; 
+    border: 1px solid var(--border); color: var(--text);
+    transition: all 0.15s; cursor: pointer;
+  }
+  .left-panel .btn-add svg { width: 20px; height: 20px; }
+  .left-panel .btn-add:hover{ border-color: var(--border-hover); background: var(--panel-2); }
+  .left-panel .btn-add.color:hover { background: rgba(166,50,84,0.15); border-color: var(--accent); }
+
+  .fab-right {
+    position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--accent); color: var(--ink); border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 40; box-shadow: 0 16px 40px var(--shadow-base);
+    transition: transform 0.2s, opacity 0.2s;
+  }
+  .fab-right:hover { transform: translateY(-50%) scale(1.05); opacity: 0.9; }
+
+  .bottom-dock{
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border); border-radius: 12px; padding: 8px 16px;
+    display: flex; align-items: center; gap: 18px; z-index: 40;
+    box-shadow: 0 20px 50px var(--shadow-base); transition: background-color 0.4s, border-color 0.4s, box-shadow 0.4s;
+  }
+  .dock-group{ display: flex; align-items:center; gap: 8px; }
+  .dock-divider{ width: 1px; height: 16px; background: var(--border); }
+  .dock-label{
+    font-size: 10px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 500; font-family: 'Space Grotesk', sans-serif;
+  }
+  .dock-control{ display: flex; align-items: center; gap: 4px; }
+  .dock-control select, .dock-control input[type="number"]{
+    background: transparent; border: 1px solid transparent; border-radius: 4px;
+    padding: 4px 6px; font-size: 12px; color: var(--text); outline: none; transition: all 0.2s;
+  }
+  .dock-control select:hover, .dock-control input[type="number"]:hover { background: var(--panel-2); border-color: var(--border-hover); }
+  select option { background-color: var(--ink); color: var(--text); }
+  
+  .dock-control input[type="range"]{
+    -webkit-appearance:none; width: 60px; height: 2px; border-radius:1px;
+    background:var(--border-hover); outline:none; transition: background 0.2s;
+  }
+  .dock-control input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:10px; height:10px; border-radius:50%; background:var(--accent); cursor:pointer;
+  }
+  .dock-value{
+    font-size:11px; color:var(--text-dim); min-width:16px; text-align:right;
+    font-variant-numeric: tabular-nums; font-family:'Space Grotesk',sans-serif;
+  }
+  
+  .dock-stepper{
+    display: flex; align-items: center; background: transparent;
+    border: 1px solid transparent; border-radius: 4px; overflow: hidden; transition: all 0.2s;
+  }
+  .dock-stepper:hover { background: var(--panel-2); border-color: var(--border-hover); }
+  .dock-stepper button{ background: transparent; border: none; padding: 4px 6px; color: var(--text-dim); font-size: 12px; }
+  .dock-stepper button:hover{ color: var(--text); }
+  .dock-stepper span{ padding: 0 2px; font-size: 11.5px; font-weight: 400; min-width: 14px; text-align: center; }
+
+  .swatches{ display:flex; gap:6px; align-items:center; }
+  .swatch{
+    width:16px; height:16px; border-radius:50%; border:1px solid var(--border);
+    cursor:pointer; box-shadow:inset 0 0 0 1px rgba(0,0,0,.1); transition: transform 0.15s;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.active{ border-color:var(--accent); transform: scale(1.1); }
+  .swatch.custom{
+    display:flex; align-items:center; justify-content:center; background:var(--panel-2);
+    font-size:10px; color:var(--text-dim); position:relative; overflow:hidden;
+  }
+  .swatch.custom input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  .toast{
+    position:fixed; bottom:84px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--panel); backdrop-filter: blur(12px); border:1px solid var(--border); color:var(--text);
+    padding:8px 16px; border-radius:6px; font-size:12px; opacity:0; pointer-events:none;
+    transition:opacity .3s ease, transform .3s ease; z-index:100; font-weight: 400;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .context-menu {
+    position: fixed; background: var(--panel); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: none; flex-direction: column;
+    gap: 2px; z-index: 100; box-shadow: 0 16px 40px var(--shadow-base); min-width: 140px;
+  }
+  .context-menu.open { display: flex; }
+  .context-menu button {
+    background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 12.5px; 
+    padding: 8px 12px; border-radius: 5px; width: 100%; text-align: left; cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  .context-menu button:hover { background: var(--accent); color: var(--ink); }
+
+  body.exporting .tile::after { display: none !important; }
+  input[type=file] { display:none !important; }
+
+  /* ---------- Modal Overlay ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; z-index: 200;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; width: 320px; max-width: 90vw; display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 24px 80px var(--shadow-base);
+  }
+  .modal h3 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 16px; color: var(--text); }
+  .modal-list { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; }
+  .modal-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; color: var(--text); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top-container">
+    <div class="topbar">
+      
+      <div class="brand">
+        <img class="logo-dark" src="assets/saved_white_3x.png" alt="Saved">
+        <img class="logo-light" src="assets/saved_black_3x.png" alt="Saved">
+      </div>
+      
+      <input class="titlefield" id="titleField" value="Untitled" spellcheck="false" title="Project Name" style="margin-left: 8px;">
+      <span class="save-state" id="saveState">Saved</span>
+      
+      <div class="dock-group" style="margin-left: 12px;">
+        <button class="btn ghost icon-btn" id="undoBtn" title="Undo (Ctrl+Z / Cmd+Z)" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+        </button>
+        <button class="btn ghost icon-btn" id="redoBtn" title="Redo (Ctrl+Y / Cmd+Shift+Z)" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path></svg>
+        </button>
+      </div>
+
+      <div class="spacer"></div>
+
+      <button class="btn ghost icon-btn" id="themeBtn" title="Toggle Theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+        </svg>
+      </button>
+
+      <div class="menu-wrap">
+        <button class="btn ghost" id="projectsBtn">Projects</button>
+        <div class="menu" id="projectsMenu"></div>
+      </div>
+
+      <button class="btn ghost" id="newBtn">New</button>
+      <button class="btn ghost" onclick="document.getElementById('deviceOpenInput').click()">Open</button>
+      <button class="btn outlined" id="saveDeviceBtn">Save Local</button>
+      <button class="btn primary" id="saveBtn">Save Cloud</button>
+
+      <input type="file" id="deviceOpenInput" accept=".json" style="display:none;" onchange="openDeviceFile(event)">
+
+      <div class="menu-wrap">
+        <button class="btn outlined" id="exportBtn">Export ▾</button>
+        <div class="menu" id="exportMenu">
+          <button data-fmt="png-1">PNG (Standard)</button>
+          <button data-fmt="png-2">PNG (High 2x)</button>
+          <button data-fmt="png-3">PNG (Ultra 3x)</button>
+          <button data-fmt="png-alpha">PNG (Transparent)</button>
+          <hr>
+          <button data-fmt="pdf">PDF Document</button>
+          <hr>
+          <button data-fmt="zip">ZIP (All Boards & Tiles)</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tab Bar -->
+    <div class="tab-bar" id="tabBar"></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="viewport-canvas" id="viewportCanvas"></div>
+  </div>
+
+  <div class="context-menu" id="contextMenu">
+    <button id="ctxCopy">Copy Content</button>
+    <button id="ctxDelete">Delete Tile</button>
+  </div>
+
+  <!-- Export Modal -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal">
+      <h3>Select Artboards</h3>
+      <label><input type="checkbox" id="selectAllBoards"> <strong>Select All</strong></label>
+      <hr style="border:none; border-top:1px solid var(--border); margin:4px 0;">
+      <div class="modal-list" id="exportBoardList"></div>
+      <div class="modal-actions">
+        <button class="btn outlined" id="cancelExportBtn">Cancel</button>
+        <button class="btn primary" id="confirmExportBtn">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Left Side Panel for Adding Elements -->
+  <div class="left-panel">
+    <button class="btn-add" id="addImagesBtn" title="Add Images">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+    </button>
+    <button class="btn-add color" id="addColorBtn" title="Add Color Block">
+      <!-- Droplet Color Icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+    </button>
+    <button class="btn-add" id="addTextBtn" title="Add Text Note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+    </button>
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+  </div>
+
+  <div class="bottom-dock">
+    <div class="dock-group">
+      <span class="dock-label">Layout</span>
+      <div class="dock-control">
+        <select id="templateSelect">
+          <option value="standard">Grid</option>
+          <option value="featured">Featured</option>
+          <option value="hero">Hero</option>
+          <option value="bento">Bento</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="dock-group">
+      <span class="dock-label">Cols</span>
+      <div class="dock-stepper">
+        <button id="colsMinus">−</button>
+        <span id="colsValStepper">3</span>
+        <button id="colsPlus">+</button>
+      </div>
+    </div>
+
+    <div class="dock-group">
+      <span class="dock-label">Shape</span>
+      <div class="dock-control">
+        <select id="ratioSelect">
+          <option value="1/1">1:1</option>
+          <option value="4/5">4:5</option>
+          <option value="3/2">3:2</option>
+          <option value="16/9">16:9</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="dock-control" id="customRatioRow" style="display:none; gap:2px;">
+        <input type="number" id="customRatioW" style="width:44px;" placeholder="W" min="1" max="99">
+        <span class="dock-label" style="text-transform:none; letter-spacing:0;">:</span>
+        <input type="number" id="customRatioH" style="width:44px;" placeholder="H" min="1" max="99">
+      </div>
+    </div>
+
+    <div class="dock-group">
+      <span class="dock-label">Gap</span>
+      <div class="dock-control">
+        <input type="range" id="gapRange" min="0" max="40" value="12">
+        <span class="dock-value" id="gapVal">12</span>
+      </div>
+    </div>
+
+    <div class="dock-group">
+      <span class="dock-label">Radius</span>
+      <div class="dock-control">
+        <input type="range" id="radiusRange" min="0" max="30" value="0">
+        <span class="dock-value" id="radiusVal">0</span>
+      </div>
+    </div>
+
+    <div class="dock-group">
+      <span class="dock-label">Size</span>
+      <div class="dock-control">
+        <select id="presetSelect">
+          <option value="760x760">Square</option>
+          <option value="760x950">Portrait</option>
+          <option value="760x1350">Story</option>
+          <option value="950x534">Wide</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="dock-control" id="customSizeRow" style="display:none; gap:2px;">
+        <input type="number" id="customW" style="width:64px;" placeholder="W" min="200" max="3000">
+        <input type="number" id="customH" style="width:64px;" placeholder="H" min="200" max="3000">
+      </div>
+    </div>
+
+    <div class="dock-group">
+      <span class="dock-label">Pad</span>
+      <div class="dock-control">
+        <input type="range" id="padRange" min="0" max="60" value="24">
+        <span class="dock-value" id="padVal">24</span>
+      </div>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-group">
+      <div class="swatches" id="swatches">
+        <div class="swatch active" data-color="#161616" style="background:#161616"></div>
+        <div class="swatch" data-color="#e5e5e5" style="background:#e5e5e5"></div>
+        <div class="swatch" data-color="#ffffff" style="background:#ffffff"></div>
+        <div class="swatch custom">
+          +<input type="color" id="customColor" value="#161616">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side FAB for Adding Artboards -->
+  <button id="addArtboardBtn" class="fab-right" title="Add Artboard">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const $ = (sel) => document.querySelector(sel);
+  const generateId = () => Math.random().toString(36).substr(2, 9);
+
+  // DOM Elements
+  const stage = $('#stage');
+  const viewportCanvas = $('#viewportCanvas');
+  const tabBar = $('#tabBar');
+  const contextMenu = $('#contextMenu');
+
+  window.__clipboardTile = null;
+
+  function safeGetLocal(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
+  function safeSetLocal(key, val) { try { localStorage.setItem(key, val); return true; } catch(e) { return false; } }
+  function safeRemoveLocal(key) { try { localStorage.removeItem(key); } catch(e) {} }
+
+  // -------------------------------------------------------------
+  // THEME MANAGEMENT (Dynamic SVG Icon)
+  // -------------------------------------------------------------
+  const sunIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+  const moonIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+
+  let isLightMode = safeGetLocal('gridwork-theme') === 'light';
+  if (isLightMode) document.body.classList.add('light-mode');
+  
+  function updateThemeIcon() { $('#themeBtn').innerHTML = isLightMode ? moonIcon : sunIcon; }
+  updateThemeIcon();
+  
+  $('#themeBtn').onclick = () => {
+    isLightMode = !isLightMode;
+    document.body.classList.toggle('light-mode', isLightMode);
+    safeSetLocal('gridwork-theme', isLightMode ? 'light' : 'dark');
+    updateThemeIcon();
+  };
+
+  // -------------------------------------------------------------
+  // STATE ARCHITECTURE
+  // -------------------------------------------------------------
+  const RATIO_PRESETS = ['1/1', '4/5', '3/2', '16/9'];
+
+  const createArtboard = (name = "Artboard") => ({
+    id: 'ab_' + generateId(), x: 0, y: 0, name: name, template: 'standard',
+    columns: 3, gap: 12, radius: 0, ratio: '1/1', customSize: false,
+    boardW: 760, boardH: 760, padding: 24, 
+    bg: isLightMode ? '#e5e5e5' : '#161616', tiles: [], selectedTileIndex: null 
+  });
+
+  function normalizeArtboard(ab) {
+    if (typeof ab.customSize !== 'boolean') ab.customSize = false;
+    if (typeof ab.ratio !== 'string') ab.ratio = '1/1';
+    if (!Array.isArray(ab.tiles)) ab.tiles = [];
+    ab.tiles.forEach(t => {
+      if (!t.type) t.type = 'image';
+      if (t.type === 'image') { if (t.cropX == null) t.cropX = 50; if (t.cropY == null) t.cropY = 50; }
+      if (t.type === 'text') { 
+        if (t.fontSize == null) t.fontSize = 28; 
+        if (!t.color) t.color = '#111111'; // Default dark text for sticky notes
+        if (!t.bg) t.bg = '#fef2a0'; // Default warm yellow sticky note bg
+        if (t.text == null) t.text = ''; 
+        if (!t.textAlign) t.textAlign = 'center';
+      }
+    });
+    return ab;
+  }
+
+  const createProject = (name = "Untitled") => ({
+    id: 'p_' + generateId(), name: name, zoom: 100, panX: 40, panY: 40,
+    activeArtboardId: null, artboards: [createArtboard('Board 1')],
+    undoStack: [], redoStack: []
+  });
+
+  let appState = { tabs: [createProject()], activeTabId: null };
+  appState.activeTabId = appState.tabs[0].id;
+  appState.tabs[0].activeArtboardId = appState.tabs[0].artboards[0].id;
+
+  let isInternalChange = false;
+  let dirty = false;
+  let selectedContextData = { artboardId: null, tileIndex: null };
+
+  function getTab() { return appState.tabs.find(t => t.id === appState.activeTabId); }
+  function getActiveArtboard() {
+    const tab = getTab(); if (!tab || !tab.activeArtboardId) return null;
+    return tab.artboards.find(a => a.id === tab.activeArtboardId);
+  }
+
+  // -------------------------------------------------------------
+  // IMAGE COMPRESSION ENGINE
+  // -------------------------------------------------------------
+  function compressImage(fileOrBlob, maxDim, quality){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader(); reader.onerror = reject;
+      reader.onload = () => {
+        const img = new Image(); img.onerror = reject;
+        img.onload = () => {
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const scale = Math.min(1, maxDim / Math.max(w,h));
+          w = Math.round(w*scale); h = Math.round(h*scale);
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img,0,0,w,h);
+          const isPNG = fileOrBlob && fileOrBlob.type === 'image/png';
+          resolve({ dataUrl: c.toDataURL(isPNG ? 'image/png' : 'image/jpeg', isPNG ? undefined : quality) });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(fileOrBlob);
+    });
+  }
+
+  // -------------------------------------------------------------
+  // CENTRAL KEYBOARD SHORTCUTS MANAGER
+  // -------------------------------------------------------------
+  let isSpacePressed = false;
+  let isAltPressed = false;
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Alt' || e.altKey) isAltPressed = true;
+
+    const isEditingText = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable;
+
+    if (e.code === 'Space' && !isEditingText) {
+      isSpacePressed = true;
+      stage.classList.add('space-down');
+      e.preventDefault(); 
+    }
+
+    if (isEditingText) return;
+    
+    // Save
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault(); saveProject(); return;
+    }
+
+    // Undo
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault(); undo(); return;
+    }
+    
+    // Redo
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+      e.preventDefault(); redo(); return;
+    }
+
+    const ab = getActiveArtboard();
+
+    // Copy
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      if (ab && ab.selectedTileIndex !== null && ab.selectedTileIndex !== undefined) {
+        e.preventDefault();
+        const tileToCopy = ab.tiles[ab.selectedTileIndex];
+        window.__clipboardTile = JSON.parse(JSON.stringify(tileToCopy));
+        toast("Tile copied");
+      }
+    }
+
+    // Delete
+    if ((e.key === 'Delete' || e.key === 'Backspace') && ab && ab.selectedTileIndex !== null && ab.selectedTileIndex !== undefined) {
+      e.preventDefault();
+      ab.tiles.splice(ab.selectedTileIndex, 1);
+      ab.selectedTileIndex = null;
+      renderStage(); saveStateSnapshot(); markDirty();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'Alt' || !e.altKey) isAltPressed = false;
+    if (e.code === 'Space') {
+      isSpacePressed = false;
+      stage.classList.remove('space-down');
+    }
+  });
+
+  // --- PASTE EVENT HANDLER (Supports Web Image Copy/Paste & Internal) ---
+  window.addEventListener('paste', async (e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+    
+    const ab = getActiveArtboard();
+    if(!ab) return;
+
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const items = Array.from(clipboardData.items || []);
+    const imageItems = items.filter(it => it.type.startsWith('image/'));
+
+    // 1. Direct Image Paste (Screenshots, direct files)
+    if (imageItems.length > 0) {
+      e.preventDefault();
+      window.__clipboardTile = null; 
+      let added = false;
+      for(const it of imageItems){ 
+        const f = it.getAsFile(); 
+        if(f) {
+          const { dataUrl } = await compressImage(f, 2400, 0.95);
+          ab.tiles.push({ id: 't_' + generateId(), type: 'image', src: dataUrl, cropX: 50, cropY: 50 });
+          added = true;
+        }
+      }
+      if (added) {
+        ab.selectedTileIndex = ab.tiles.length - 1;
+        saveStateSnapshot(); markDirty(); renderStage(); toast("Image pasted");
+      }
+      return;
+    }
+
+    // 2. HTML Image Paste (Copying images from Google / Websites)
+    if (clipboardData.types.includes('text/html')) {
+      const html = clipboardData.getData('text/html');
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const img = doc.querySelector('img');
+      
+      if (img && img.src) {
+        e.preventDefault();
+        window.__clipboardTile = null;
+        toast("Fetching image...");
+        try {
+          // Fetch directly to bypass CORS tainting
+          const res = await fetch(img.src);
+          const blob = await res.blob();
+          const { dataUrl } = await compressImage(blob, 2400, 0.95);
+          ab.tiles.push({ id: 't_' + generateId(), type: 'image', src: dataUrl, cropX: 50, cropY: 50 });
+        } catch(err) {
+          // Fallback to pure URL if CORS blocks standard fetch
+          ab.tiles.push({ id: 't_' + generateId(), type: 'image', src: img.src, cropX: 50, cropY: 50 });
+        }
+        ab.selectedTileIndex = ab.tiles.length - 1;
+        saveStateSnapshot(); markDirty(); renderStage();
+        return;
+      }
+    }
+
+    // 3. Fallback: Internal Clipboard Paste
+    if (window.__clipboardTile) {
+      e.preventDefault();
+      const newTile = JSON.parse(JSON.stringify(window.__clipboardTile));
+      newTile.id = 't_' + generateId();
+      ab.tiles.push(newTile);
+      ab.selectedTileIndex = ab.tiles.length - 1;
+      renderStage(); saveStateSnapshot(); markDirty();
+      toast("Tile pasted");
+    }
+  });
+
+  // -------------------------------------------------------------
+  // HISTORY
+  // -------------------------------------------------------------
+  function saveStateSnapshot() {
+    if (isInternalChange) return;
+    const tab = getTab();
+    const snapshotObj = {
+      name: tab.name, zoom: tab.zoom, panX: tab.panX, panY: tab.panY,
+      activeArtboardId: tab.activeArtboardId, artboards: tab.artboards
+    };
+    const snapshot = JSON.stringify(snapshotObj);
+    
+    if (tab.undoStack.length === 0 || tab.undoStack[tab.undoStack.length - 1] !== snapshot) {
+      tab.undoStack.push(snapshot);
+      if (tab.undoStack.length > 30) tab.undoStack.shift();
+      tab.redoStack = [];
+      updateHistoryButtons();
+    }
+  }
+
+  function updateHistoryButtons() {
+    const tab = getTab();
+    if(!tab) return;
+    $('#undoBtn').disabled = tab.undoStack.length <= 1;
+    $('#redoBtn').disabled = tab.redoStack.length === 0;
+  }
+
+  function undo() {
+    const tab = getTab();
+    if (tab.undoStack.length <= 1) return;
+    const current = tab.undoStack.pop();
+    tab.redoStack.push(current);
+    const previous = tab.undoStack[tab.undoStack.length - 1];
+    restoreSnapshot(previous); markDirty();
+  }
+
+  function redo() {
+    const tab = getTab();
+    if (tab.redoStack.length === 0) return;
+    const next = tab.redoStack.pop();
+    tab.undoStack.push(next);
+    restoreSnapshot(next); markDirty();
+  }
+
+  function restoreSnapshot(jsonStr) {
+    isInternalChange = true;
+    const data = JSON.parse(jsonStr); const tab = getTab();
+    tab.name = data.name; tab.activeArtboardId = data.activeArtboardId; tab.artboards = data.artboards;
+    syncUIToActiveArtboard(); renderTabs(); renderStage(); updateHistoryButtons();
+    isInternalChange = false;
+  }
+
+  function markDirty(){
+    dirty = true; $('#saveState').textContent = 'Unsaved changes';
+    $('#saveState').style.color = 'var(--text)'; $('#saveState').classList.add('dirty');
+  }
+  function markSaved(){
+    dirty = false; $('#saveState').textContent = 'Saved';
+    $('#saveState').style.color = 'var(--text-dim)'; $('#saveState').classList.remove('dirty');
+  }
+
+  let toastTimer;
+  function toast(msg){
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);
+  }
+
+  // -------------------------------------------------------------
+  // HYBRID CLOUD ENGINE
+  // -------------------------------------------------------------
+  const DB_NAME = 'GoodBoardDB'; 
+  const DB_STORE = 'projects';
+  let dbInstance = null;
+
+  async function getDB() {
+    if (dbInstance) return dbInstance;
+    return new Promise((resolve, reject) => {
+      try {
+        if (!window.indexedDB) return reject(new Error('No IDB'));
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+        };
+        request.onsuccess = (e) => {
+          dbInstance = e.target.result;
+          dbInstance.onversionchange = () => { dbInstance.close(); dbInstance = null; };
+          resolve(dbInstance);
+        };
+        request.onerror = () => reject(request.error || new Error('DB Error'));
+        request.onblocked = () => reject(new Error('DB Blocked'));
+      } catch (err) { reject(err); }
+    });
+  }
+
+  async function storageSet(key, value) {
+    let success = false;
+    try {
+      const db = await getDB();
+      success = await new Promise((resolve) => {
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        const store = tx.objectStore(DB_STORE);
+        store.put(value, key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      });
+    } catch (e) {}
+
+    try {
+      const serialized = JSON.stringify(value);
+      safeSetLocal(key, serialized);
+      if (!success) success = true;
+    } catch (err) {}
+    return success;
+  }
+
+  async function storageGet(key) {
+    let result = null;
+    try {
+      const db = await getDB();
+      result = await new Promise((resolve) => {
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const store = tx.objectStore(DB_STORE);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+        tx.onabort = () => resolve(null);
+      });
+    } catch (e) { }
+
+    if (result === null || result === undefined) {
+      try {
+        const item = safeGetLocal(key);
+        if (item) {
+          result = JSON.parse(item);
+          storageSet(key, result).catch(()=>{});
+        }
+      } catch (err) {}
+    }
+    return result;
+  }
+
+  async function storageDelete(key) {
+    try {
+      const db = await getDB();
+      await new Promise((resolve) => {
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        const store = tx.objectStore(DB_STORE);
+        store.delete(key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      });
+    } catch (e) {}
+    safeRemoveLocal(key);
+  }
+
+  async function getIndexRaw() {
+    let list = await storageGet('gridwork-index');
+    if (Array.isArray(list) && list.length > 0) return list;
+    const item = safeGetLocal('gridwork-index');
+    if (item) {
+      try { return JSON.parse(item); } catch(e) {}
+    }
+    return [];
+  }
+
+  async function saveIndex(list) {
+    await storageSet('gridwork-index', list);
+    safeSetLocal('gridwork-index', JSON.stringify(list));
+  }
+
+  async function getAllSavedProjectSummaries() {
+    const indexMap = new Map();
+    const existing = await getIndexRaw();
+    if (Array.isArray(existing)) {
+      existing.forEach(p => { if (p && p.id) indexMap.set(p.id, p); });
+    }
+
+    try {
+      const db = await getDB();
+      await new Promise((resolve) => {
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const store = tx.objectStore(DB_STORE);
+        if (store.getAllKeys) {
+          const req = store.getAllKeys();
+          req.onsuccess = async () => {
+            const keys = req.result || [];
+            for (const k of keys) {
+              if (typeof k === 'string' && k.startsWith('gridwork:') && k !== 'gridwork:undefined' && k !== 'gridwork-index') {
+                const projId = k.replace('gridwork:', '');
+                if (!indexMap.has(projId)) {
+                  const projData = await storageGet(k);
+                  if (projData) {
+                    indexMap.set(projId, {
+                      id: projId,
+                      name: projData.name || 'Untitled Project',
+                      updatedAt: projData.updatedAt || Date.now()
+                    });
+                  }
+                }
+              }
+            }
+            resolve();
+          };
+          req.onerror = () => resolve();
+        } else resolve();
+      });
+    } catch(e) {}
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('gridwork:') && k !== 'gridwork:undefined' && k !== 'gridwork-index') {
+          const projId = k.replace('gridwork:', '');
+          if (!indexMap.has(projId)) {
+            try {
+              const projData = JSON.parse(localStorage.getItem(k));
+              if (projData) {
+                indexMap.set(projId, { id: projId, name: projData.name || 'Untitled Project', updatedAt: projData.updatedAt || Date.now() });
+              }
+            } catch(err) {}
+          }
+        }
+      }
+    } catch(e) {}
+
+    const finalList = Array.from(indexMap.values());
+    await saveIndex(finalList);
+    return finalList;
+  }
+
+  // -------------------------------------------------------------
+  // FILE & TAB MANAGEMENT
+  // -------------------------------------------------------------
+  function centerViewport(tab){
+    if(!stage.clientWidth || !stage.clientHeight) return;
+    const ab = tab.artboards[0];
+    tab.panX = (stage.clientWidth - (ab ? ab.boardW : 760)) / 2;
+    tab.panY = (stage.clientHeight - (ab ? ab.boardH : 760)) / 2;
+    if(isNaN(tab.panX)) tab.panX = 40; if(isNaN(tab.panY)) tab.panY = 40;
+  }
+
+  function addNewTab() {
+    const p = createProject(`File ${appState.tabs.length + 1}`);
+    p.activeArtboardId = p.artboards[0].id;
+    centerViewport(p);
+    appState.tabs.push(p); appState.activeTabId = p.id;
+    isInternalChange = false; saveStateSnapshot(); refreshAppUI();
+  }
+
+  function closeTab(e, id) {
+    e.stopPropagation();
+    if(appState.tabs.length === 1) { toast("Cannot close the last file."); return; }
+    const idx = appState.tabs.findIndex(t => t.id === id);
+    appState.tabs.splice(idx, 1);
+    if(appState.activeTabId === id) appState.activeTabId = appState.tabs[Math.max(0, idx - 1)].id;
+    refreshAppUI();
+  }
+
+  function switchTab(id) {
+    if(appState.activeTabId === id) return;
+    appState.activeTabId = id; refreshAppUI();
+  }
+
+  function renderTabs() {
+    tabBar.innerHTML = '';
+    appState.tabs.forEach(tab => {
+      const el = document.createElement('div');
+      el.className = `tab ${appState.activeTabId === tab.id ? 'active' : ''}`;
+      el.innerHTML = `<span>${tab.name}</span><button class="tab-close" title="Close File"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
+      el.onclick = () => switchTab(tab.id);
+      el.querySelector('.tab-close').onclick = (e) => closeTab(e, tab.id);
+      tabBar.appendChild(el);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-tab-btn'; addBtn.textContent = '+ New File';
+    addBtn.onclick = addNewTab; tabBar.appendChild(addBtn);
+    $('#titleField').value = getTab().name;
+  }
+
+  $('#titleField').addEventListener('input', (e)=>{ getTab().name = e.target.value; renderTabs(); markDirty(); });
+
+  async function saveProject(){
+    const tab = getTab();
+    if(!tab) return;
+    if(!tab.projectId) tab.projectId = 'p_' + Date.now();
+
+    const tabToSave = {
+      name: tab.name || 'Untitled',
+      projectId: tab.projectId,
+      zoom: tab.zoom || 100,
+      panX: tab.panX || 40,
+      panY: tab.panY || 40,
+      activeArtboardId: tab.activeArtboardId,
+      artboards: tab.artboards.map(ab => ({ ...ab })),
+      updatedAt: Date.now()
+    };
+
+    const ok = await storageSet('gridwork:' + tab.projectId, tabToSave);
+    if(!ok){ toast('Storage failed! Save Local instead.'); return; }
+    
+    let idx = await getIndexRaw();
+    if(!Array.isArray(idx)) idx = [];
+    idx = idx.filter(p => p.id !== tab.projectId);
+    idx.unshift({ id: tab.projectId, name: tab.name, updatedAt: Date.now() });
+    await saveIndex(idx);
+
+    markSaved(); toast('Saved to Cloud');
+  }
+
+  function saveProjectToDevice() {
+    const data = getTab();
+    const exportData = { ...data, undoStack: [], redoStack: [] };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `${(data.name || 'Saved').replace(/\s+/g,'-').toLowerCase()}.json`;
+    a.click(); URL.revokeObjectURL(url); markSaved(); toast('File downloaded');
+  }
+
+  window.openDeviceFile = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const raw = JSON.parse(e.target.result);
+        let migratedTab;
+        if (raw.artboards && Array.isArray(raw.artboards)) { migratedTab = raw; } 
+        else {
+           migratedTab = createProject(raw.name || raw.projectName || 'Imported File');
+           const ab = migratedTab.artboards[0];
+           ab.columns = raw.columns ?? 3; ab.gap = raw.gap ?? 12; ab.radius = raw.radius ?? 0;
+           ab.ratio = raw.ratio || '1/1'; ab.boardW = raw.boardW || 760; ab.boardH = raw.boardH || 760;
+           ab.padding = raw.padding ?? 24; ab.bg = raw.bg || (isLightMode ? '#e5e5e5' : '#161616');
+           ab.tiles = (raw.tiles || []).map(t => ({...t, type: t.type || 'image', cropX: t.cropX??50, cropY: t.cropY??50}));
+        }
+        migratedTab.id = 't_' + generateId(); 
+        delete migratedTab.projectId; 
+        
+        migratedTab.artboards.forEach((ab, abIndex) => {
+          if (typeof ab.x !== 'number' || isNaN(ab.x)) ab.x = abIndex * ((ab.boardW || 760) + 80);
+          if (typeof ab.y !== 'number' || isNaN(ab.y)) ab.y = 0;
+          normalizeArtboard(ab);
+        });
+
+        if(migratedTab.artboards.length > 0) migratedTab.activeArtboardId = migratedTab.artboards[0].id;
+        migratedTab.undoStack = []; migratedTab.redoStack = [];
+        appState.tabs.push(migratedTab); appState.activeTabId = migratedTab.id;
+        refreshAppUI(); saveStateSnapshot(); toast('File opened successfully');
+      } catch (err) { toast('Error: Invalid file format'); }
+    };
+    reader.readAsText(file); event.target.value = ''; 
+  }
+
+  async function loadProject(id){
+    closeAllMenus();
+    const existingTab = appState.tabs.find(t => t.projectId === id || t.id === id);
+    if(existingTab) { switchTab(existingTab.id); toast('Switched to open tab'); return; }
+
+    let data = await storageGet('gridwork:' + id);
+    if (!data) data = await storageGet(id);
+    if (!data) { toast('Could not open project.'); return; }
+    
+    let newTab;
+    if (!data.artboards || !Array.isArray(data.artboards)) {
+      newTab = createProject(data.name || data.projectName || 'Project');
+      newTab.projectId = id;
+      const ab = newTab.artboards[0];
+      ab.columns = data.columns ?? 3; ab.gap = data.gap ?? 12; ab.radius = data.radius ?? 0;
+      ab.ratio = data.ratio || '1/1'; ab.boardW = data.boardW || 760; ab.boardH = data.boardH || 760;
+      ab.padding = data.padding ?? 24; ab.bg = data.bg || (isLightMode ? '#e5e5e5' : '#161616');
+      ab.tiles = (data.tiles || []).map(t => ({...t, type: t.type || 'image', cropX: t.cropX ?? 50, cropY: t.cropY ?? 50}));
+    } else {
+      newTab = { ...data, id: 't_' + generateId(), projectId: id, undoStack: [], redoStack: [] };
+    }
+
+    newTab.artboards.forEach((ab, abIndex) => {
+      if (typeof ab.x !== 'number' || isNaN(ab.x)) ab.x = abIndex * ((ab.boardW || 760) + 80);
+      if (typeof ab.y !== 'number' || isNaN(ab.y)) ab.y = 0;
+      if (!ab.tiles) ab.tiles = [];
+      normalizeArtboard(ab);
+    });
+
+    if (newTab.artboards.length > 0) {
+      if (!newTab.activeArtboardId || !newTab.artboards.some(a => a.id === newTab.activeArtboardId)) {
+        newTab.activeArtboardId = newTab.artboards[0].id;
+      }
+    }
+
+    centerViewport(newTab);
+    appState.tabs.push(newTab); appState.activeTabId = newTab.id;
+    refreshAppUI(); saveStateSnapshot(); toast('Project loaded');
+  }
+
+  async function deleteProject(id){
+    await storageDelete('gridwork:' + id);
+    await storageDelete(id);
+    
+    let idx = await getIndexRaw();
+    if(Array.isArray(idx)) { idx = idx.filter(p => p.id !== id); await saveIndex(idx); }
+    
+    const openIdx = appState.tabs.findIndex(t => t.projectId === id);
+    if (openIdx !== -1) {
+      if(appState.tabs.length === 1) { addNewTab(); appState.tabs.splice(0, 1); } 
+      else {
+        appState.tabs.splice(openIdx, 1);
+        if (appState.activeTabId === appState.tabs[openIdx]?.id || !appState.tabs.find(t => t.id === appState.activeTabId)) {
+          appState.activeTabId = appState.tabs[0].id;
+        }
+        refreshAppUI();
+      }
+    }
+    await refreshProjectsMenu();
+  }
+
+  // -------------------------------------------------------------
+  // RENDERING & INTERACTION (FREE DRAG ARTBOARDS)
+  // -------------------------------------------------------------
+  function refreshAppUI() {
+    const tab = getTab();
+    if (!tab) return;
+    if (tab.artboards.length > 0) {
+      if (!tab.activeArtboardId || !tab.artboards.some(a => a.id === tab.activeArtboardId)) {
+        tab.activeArtboardId = tab.artboards[0].id;
+      }
+    }
+    renderTabs(); syncUIToActiveArtboard(); renderStage(); updateHistoryButtons();
+  }
+
+  function updateTransform(){
+    const tab = getTab();
+    if(!tab) return;
+    viewportCanvas.style.transform = `translate(${tab.panX}px, ${tab.panY}px) scale(${tab.zoom / 100})`;
+  }
+
+  function setActiveArtboard(abId) {
+    const tab = getTab();
+    if (tab.activeArtboardId === abId) return;
+    tab.activeArtboardId = abId;
+    syncUIToActiveArtboard(); renderStage(); 
+  }
+
+  let isDraggingArtboard = false;
+  let draggedArtboardId = null;
+  let abDragStartX = 0, abDragStartY = 0;
+  let abBaseX = 0, abBaseY = 0;
+
+  function renderStage(){
+    const tab = getTab();
+    updateTransform();
+    viewportCanvas.innerHTML = '';
+    
+    tab.artboards.forEach((ab, abIndex) => {
+      if (typeof ab.x !== 'number' || isNaN(ab.x)) ab.x = abIndex * ((ab.boardW || 760) + 80);
+      if (typeof ab.y !== 'number' || isNaN(ab.y)) ab.y = 0;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = `artboard-wrapper ${tab.activeArtboardId === ab.id ? 'active' : ''}`;
+      wrapper.id = `wrapper_${ab.id}`;
+      wrapper.style.transform = `translate(${ab.x}px, ${ab.y}px)`;
+      wrapper.onmousedown = (e) => {
+        if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') setActiveArtboard(ab.id);
+      };
+
+      const header = document.createElement('div');
+      header.className = 'artboard-header';
+      
+      header.onmousedown = (e) => {
+         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+         e.stopPropagation(); 
+         isDraggingArtboard = true;
+         draggedArtboardId = ab.id;
+         abDragStartX = e.clientX;
+         abDragStartY = e.clientY;
+         abBaseX = ab.x;
+         abBaseY = ab.y;
+         setActiveArtboard(ab.id);
+      };
+
+      const titleInput = document.createElement('input');
+      titleInput.className = 'artboard-title'; titleInput.value = ab.name;
+      titleInput.onchange = (e) => { ab.name = e.target.value; saveStateSnapshot(); markDirty(); };
+      
+      const delBtn = document.createElement('button');
+      delBtn.className = 'artboard-delete'; delBtn.innerHTML = 'Delete';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        if(tab.artboards.length === 1) { toast('Need at least one artboard'); return; }
+        if(confirm(`Delete ${ab.name}?`)) {
+          tab.artboards.splice(abIndex, 1);
+          if(tab.activeArtboardId === ab.id) tab.activeArtboardId = tab.artboards[0].id;
+          saveStateSnapshot(); refreshAppUI(); markDirty();
+        }
+      };
+
+      header.appendChild(titleInput); header.appendChild(delBtn); wrapper.appendChild(header);
+
+      const boardDOM = document.createElement('div');
+      boardDOM.className = 'board'; boardDOM.id = `board_${ab.id}`;
+      boardDOM.style.setProperty('grid-template-columns', `repeat(${ab.columns}, minmax(0, 1fr))`);
+      boardDOM.style.setProperty('gap', ab.gap + 'px');
+      boardDOM.style.setProperty('padding', ab.padding + 'px');
+      boardDOM.style.setProperty('background', ab.bg);
+      boardDOM.style.width = ab.boardW + 'px';
+      boardDOM.style.minHeight = ab.boardH + 'px';
+
+      boardDOM.addEventListener('dragover', e => { 
+        e.preventDefault(); 
+        const isCopy = e.altKey || isAltPressed;
+        e.dataTransfer.dropEffect = isCopy ? 'copy' : 'move';
+        if(Array.from(e.dataTransfer.types).includes('Files')) { boardDOM.style.borderColor = 'var(--accent)'; }
+      });
+      boardDOM.addEventListener('dragleave', e => { boardDOM.style.borderColor = 'transparent'; });
+      
+      boardDOM.addEventListener('drop', async e => {
+        e.preventDefault(); boardDOM.style.borderColor = 'transparent';
+        
+        const dataStr = e.dataTransfer.getData('text/plain');
+        if(dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                const sourceAB = tab.artboards.find(a => a.id === data.sourceArtboardId);
+                if(sourceAB) {
+                    const isCopy = e.altKey || isAltPressed || e.dataTransfer.dropEffect === 'copy';
+                    if (isCopy) {
+                        const cloned = JSON.parse(JSON.stringify(sourceAB.tiles[data.tileIndex]));
+                        cloned.id = 't_' + generateId();
+                        ab.tiles.push(cloned);
+                        ab.selectedTileIndex = ab.tiles.length - 1;
+                        setActiveArtboard(ab.id);
+                        saveStateSnapshot(); markDirty(); renderStage();
+                        toast("Tile duplicated");
+                    } else if (sourceAB.id !== ab.id) {
+                        const [moved] = sourceAB.tiles.splice(data.tileIndex, 1);
+                        ab.tiles.push(moved);
+                        ab.selectedTileIndex = ab.tiles.length - 1;
+                        setActiveArtboard(ab.id);
+                        saveStateSnapshot(); markDirty(); renderStage();
+                    } else {
+                        const [moved] = sourceAB.tiles.splice(data.tileIndex, 1);
+                        ab.tiles.push(moved);
+                        ab.selectedTileIndex = ab.tiles.length - 1;
+                        setActiveArtboard(ab.id);
+                        saveStateSnapshot(); markDirty(); renderStage();
+                    }
+                }
+            } catch(err) {}
+            return;
+        }
+
+        if(Array.from(e.dataTransfer.types).includes('Files')){
+          const files = Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));
+          if(files.length){
+            for(const f of files) {
+              const { dataUrl } = await compressImage(f, 2400, 0.95);
+              ab.tiles.push({ id: 't_' + generateId(), type: 'image', src: dataUrl, cropX: 50, cropY: 50 });
+            }
+            setActiveArtboard(ab.id); saveStateSnapshot(); markDirty(); renderStage();
+          }
+        }
+      });
+
+      if(ab.tiles.length === 0){
+        const empty = document.createElement('div');
+        empty.className = 'empty-state'; empty.style.gridColumn = `1 / -1`;
+        empty.innerHTML = `<div class="big">Empty Artboard</div><div style="font-size: 11px;">Select and use Dock + buttons</div>`;
+        boardDOM.appendChild(empty);
+      } else {
+        const canSpan = ab.columns > 1;
+
+        // --- FIXED GRID MATH TO PREVENT HERO/BENTO ZERO-HEIGHT COLLAPSE ---
+        const availableW = ab.boardW - (ab.padding * 2);
+        const colW = Math.max(1, (availableW - (ab.gap * (ab.columns - 1))) / ab.columns);
+        const ratioParts = (ab.ratio || '1/1').split('/');
+        const rW = parseFloat(ratioParts[0]) || 1;
+        const rH = parseFloat(ratioParts[1]) || 1;
+        const rowH = colW * (rH / rW);
+        // Compute exact double block aspect ratio so it spans perfectly
+        const span2Ratio = `${(colW * 2) + ab.gap} / ${(rowH * 2) + ab.gap}`;
+        
+        ab.tiles.forEach((tile, i) => {
+          const el = document.createElement('div');
+          el.className = 'tile'; el.draggable = true;
+          el.style.borderRadius = ab.radius + 'px';
+          
+          if (ab.selectedTileIndex === i) el.classList.add('is-selected');
+
+          if (ab.template === 'featured' && i === 0) { 
+             el.style.gridColumn = '1 / -1'; 
+             el.style.aspectRatio = '21/9'; 
+             el.style.height = 'auto';
+          } 
+          else if (ab.template === 'hero' && i === 0 && canSpan) { 
+             el.style.gridColumn = 'span 2'; 
+             el.style.gridRow = 'span 2'; 
+             el.style.aspectRatio = span2Ratio; 
+             el.style.height = 'auto'; 
+          } 
+          else if (ab.template === 'bento' && (i % 5 === 0) && canSpan) { 
+             el.style.gridColumn = 'span 2'; 
+             el.style.gridRow = 'span 2'; 
+             el.style.aspectRatio = span2Ratio; 
+             el.style.height = 'auto'; 
+          } 
+          else { 
+             el.style.gridColumn = 'span 1'; 
+             el.style.gridRow = 'span 1'; 
+             el.style.aspectRatio = ab.ratio; 
+             el.style.height = 'auto'; 
+          }
+
+          if (tile.type === 'color') {
+            el.style.background = tile.hex || '#e5e5e5';
+            const badge = document.createElement('div'); badge.className = 'color-tile-badge';
+            badge.textContent = (tile.hex || '#e5e5e5').toUpperCase();
+            
+            const picker = document.createElement('input'); picker.type = 'color'; picker.value = tile.hex || '#e5e5e5';
+            picker.oninput = (e) => { 
+              tile.hex = e.target.value; el.style.background = tile.hex; badge.textContent = tile.hex.toUpperCase();
+            };
+            picker.onchange = () => { saveStateSnapshot(); markDirty(); };
+            
+            const layer = document.createElement('div'); layer.className = 'color-tile-layer';
+            layer.appendChild(picker); layer.appendChild(badge);
+            el.appendChild(layer);
+          } else if (tile.type === 'text') {
+            el.style.background = tile.bg || '#fef2a0';
+
+            const textLayer = document.createElement('div');
+            textLayer.className = 'text-tile-layer';
+            textLayer.contentEditable = 'false';
+            textLayer.spellcheck = false;
+            textLayer.style.fontSize = (tile.fontSize || 28) + 'px';
+            textLayer.style.color = tile.color || '#111111';
+            textLayer.style.textAlign = tile.textAlign || 'center';
+            textLayer.textContent = tile.text || '';
+
+            textLayer.addEventListener('mousedown', (e) => {
+              if (textLayer.contentEditable === 'true') {
+                e.stopPropagation();
+              }
+              ab.selectedTileIndex = i;
+              document.querySelectorAll('.tile').forEach(t => t.classList.remove('is-selected'));
+              el.classList.add('is-selected');
+            });
+            textLayer.addEventListener('dblclick', (e) => {
+              e.stopPropagation();
+              textLayer.contentEditable = 'true';
+              textLayer.focus();
+            });
+            textLayer.addEventListener('focus', () => { el.draggable = false; });
+            textLayer.addEventListener('blur', () => {
+              textLayer.contentEditable = 'false';
+              el.draggable = true; tile.text = textLayer.textContent;
+              markDirty(); saveStateSnapshot();
+            });
+            textLayer.addEventListener('input', () => { tile.text = textLayer.textContent; markDirty(); });
+
+            el.appendChild(textLayer);
+
+            const controls = document.createElement('div'); controls.className = 'text-tile-controls';
+            
+            // Edit Button
+            const editBtn = document.createElement('button');
+            editBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+            editBtn.title = 'Edit Text';
+            editBtn.onclick = (e) => { 
+              e.stopPropagation(); 
+              textLayer.contentEditable = 'true'; 
+              textLayer.focus(); 
+            };
+            editBtn.addEventListener('mousedown', e => e.stopPropagation());
+
+            // Sticky Note Background Color Picker
+            const bgColorPicker = document.createElement('input');
+            bgColorPicker.type = 'color';
+            bgColorPicker.className = 'text-color-picker';
+            bgColorPicker.value = tile.bg || '#fef2a0';
+            bgColorPicker.title = 'Note Background Color';
+            bgColorPicker.addEventListener('input', (e) => {
+              tile.bg = e.target.value;
+              el.style.background = tile.bg;
+              markDirty();
+            });
+            bgColorPicker.addEventListener('change', () => saveStateSnapshot());
+            bgColorPicker.addEventListener('mousedown', e => e.stopPropagation());
+
+            // Text Font Color Picker
+            const textColorPicker = document.createElement('input');
+            textColorPicker.type = 'color';
+            textColorPicker.className = 'text-color-picker';
+            textColorPicker.value = tile.color || '#111111';
+            textColorPicker.title = 'Text Font Color';
+            textColorPicker.addEventListener('input', (e) => {
+              tile.color = e.target.value;
+              textLayer.style.color = tile.color;
+              markDirty();
+            });
+            textColorPicker.addEventListener('change', () => saveStateSnapshot());
+            textColorPicker.addEventListener('mousedown', e => e.stopPropagation());
+            
+            // Alignment buttons
+            const alignLeftBtn = document.createElement('button');
+            alignLeftBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="15" y1="12" x2="3" y2="12"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>';
+            alignLeftBtn.title = 'Align Left';
+            alignLeftBtn.onclick = (e) => { e.stopPropagation(); tile.textAlign = 'left'; textLayer.style.textAlign = 'left'; markDirty(); saveStateSnapshot(); };
+            
+            const alignCenterBtn = document.createElement('button');
+            alignCenterBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="19" y1="12" x2="5" y2="12"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>';
+            alignCenterBtn.title = 'Align Center';
+            alignCenterBtn.onclick = (e) => { e.stopPropagation(); tile.textAlign = 'center'; textLayer.style.textAlign = 'center'; markDirty(); saveStateSnapshot(); };
+            
+            const alignRightBtn = document.createElement('button');
+            alignRightBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="12" x2="9" y2="12"></line><line x1="21" y1="18" x2="7" y2="18"></line></svg>';
+            alignRightBtn.title = 'Align Right';
+            alignRightBtn.onclick = (e) => { e.stopPropagation(); tile.textAlign = 'right'; textLayer.style.textAlign = 'right'; markDirty(); saveStateSnapshot(); };
+            
+            [alignLeftBtn, alignCenterBtn, alignRightBtn].forEach(b => b.addEventListener('mousedown', e => e.stopPropagation()));
+
+            const fsMinus = document.createElement('button'); fsMinus.textContent = 'A−';
+            const fsVal = document.createElement('span'); fsVal.textContent = tile.fontSize || 28;
+            const fsPlus = document.createElement('button'); fsPlus.textContent = 'A+';
+            const setFontSize = (val) => {
+              tile.fontSize = Math.max(8, Math.min(200, val));
+              textLayer.style.fontSize = tile.fontSize + 'px';
+              fsVal.textContent = tile.fontSize;
+              markDirty(); saveStateSnapshot();
+            };
+            fsMinus.onclick = (e) => { e.stopPropagation(); setFontSize((tile.fontSize || 28) - 2); };
+            fsPlus.onclick = (e) => { e.stopPropagation(); setFontSize((tile.fontSize || 28) + 2); };
+            [fsMinus, fsPlus].forEach(b => b.addEventListener('mousedown', e => e.stopPropagation()));
+            
+            controls.appendChild(editBtn);
+            controls.appendChild(bgColorPicker);
+            controls.appendChild(textColorPicker);
+            controls.appendChild(alignLeftBtn);
+            controls.appendChild(alignCenterBtn);
+            controls.appendChild(alignRightBtn);
+            controls.appendChild(fsMinus); 
+            controls.appendChild(fsVal); 
+            controls.appendChild(fsPlus);
+            el.appendChild(controls);
+          } else {
+            const imgLayer = document.createElement('div'); imgLayer.className = 'img-layer';
+            imgLayer.style.backgroundImage = `url(${tile.src})`;
+            imgLayer.style.backgroundPosition = `${tile.cropX}% ${tile.cropY}%`;
+            el.appendChild(imgLayer);
+          }
+
+          const rm = document.createElement('button'); rm.className = 'remove';
+          rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+          rm.onclick = (e) => { 
+            e.stopPropagation(); ab.tiles.splice(i,1); 
+            if(ab.selectedTileIndex === i) ab.selectedTileIndex = null;
+            saveStateSnapshot(); markDirty(); renderStage(); 
+          };
+          el.appendChild(rm);
+
+          el.addEventListener('mousedown', (e) => {
+            if(e.target.closest('.remove') || e.target.closest('.color-tile-layer input') || e.target.closest('.text-color-picker') || e.button === 2) return;
+            ab.selectedTileIndex = i;
+            document.querySelectorAll('.tile').forEach(t => t.classList.remove('is-selected'));
+            el.classList.add('is-selected');
+          });
+
+          el.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            ab.selectedTileIndex = i;
+            document.querySelectorAll('.tile').forEach(t => t.classList.remove('is-selected'));
+            el.classList.add('is-selected');
+            selectedContextData = { artboardId: ab.id, tileIndex: i };
+
+            let x = e.clientX; let y = e.clientY;
+            if (x + 150 > window.innerWidth) x -= 150;
+            if (y + 80 > window.innerHeight) y -= 80;
+            contextMenu.style.left = `${x}px`; contextMenu.style.top = `${y}px`;
+            contextMenu.classList.add('open');
+          });
+
+          el.addEventListener('dragstart', (e)=>{ 
+            e.dataTransfer.setData('text/plain', JSON.stringify({sourceArtboardId: ab.id, tileIndex: i})); 
+            e.dataTransfer.effectAllowed = 'copyMove';
+            el.classList.add('dragging');
+          });
+          el.addEventListener('dragend', ()=> el.classList.remove('dragging') );
+          
+          el.addEventListener('dragover', (e)=>{ 
+            e.preventDefault(); 
+            const isCopy = e.altKey || isAltPressed;
+            e.dataTransfer.dropEffect = isCopy ? 'copy' : 'move';
+            el.classList.add('drag-over'); 
+          });
+          el.addEventListener('dragleave', ()=> el.classList.remove('drag-over'));
+          
+          el.addEventListener('drop', (e)=>{
+            e.preventDefault(); e.stopPropagation();
+            el.classList.remove('drag-over');
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if(!dataStr) return;
+            const data = JSON.parse(dataStr);
+            
+            const sourceAB = tab.artboards.find(a => a.id === data.sourceArtboardId);
+            if(sourceAB) {
+              const isCopy = e.altKey || isAltPressed || e.dataTransfer.dropEffect === 'copy';
+              if (isCopy) {
+                 const cloned = JSON.parse(JSON.stringify(sourceAB.tiles[data.tileIndex]));
+                 cloned.id = 't_' + generateId();
+                 ab.tiles.splice(i, 0, cloned);
+                 toast("Tile duplicated");
+              } else {
+                 const [moved] = sourceAB.tiles.splice(data.tileIndex, 1);
+                 let dropIndex = i;
+                 if (sourceAB.id === ab.id && data.tileIndex < i) dropIndex = i; 
+                 ab.tiles.splice(dropIndex, 0, moved);
+              }
+              ab.selectedTileIndex = i;
+              setActiveArtboard(ab.id);
+              saveStateSnapshot(); markDirty(); renderStage();
+            }
+          });
+
+          if(tile.type === 'image') {
+            let isCropping = false; let startX = 0, startY = 0;
+            el.addEventListener('mousedown', (e) => {
+              if(e.target.closest('.remove') || e.button === 2) return;
+              if(e.shiftKey) {
+                ab.selectedTileIndex = i;
+                isCropping = true; el.draggable = false; el.classList.add('cropping');
+                startX = e.clientX; startY = e.clientY; e.stopPropagation();
+              }
+            });
+            window.addEventListener('mousemove', (e) => {
+              if(!isCropping) return;
+              const dx = e.clientX - startX; const dy = e.clientY - startY;
+              startX = e.clientX; startY = e.clientY;
+              tile.cropX = Math.max(0, Math.min(100, tile.cropX - dx * 0.25));
+              tile.cropY = Math.max(0, Math.min(100, tile.cropY - dy * 0.25));
+              el.querySelector('.img-layer').style.backgroundPosition = `${tile.cropX}% ${tile.cropY}%`;
+              markDirty();
+            });
+            window.addEventListener('mouseup', () => {
+              if(isCropping){ isCropping = false; el.draggable = true; el.classList.remove('cropping'); saveStateSnapshot(); }
+            });
+          }
+          boardDOM.appendChild(el);
+        });
+      }
+      wrapper.appendChild(boardDOM);
+      viewportCanvas.appendChild(wrapper);
+    });
+  }
+
+  function syncUIToActiveArtboard(){
+    const ab = getActiveArtboard();
+    if(!ab) return;
+    $('#templateSelect').value = ab.template;
+    $('#colsValStepper').textContent = ab.columns;
+    $('#gapRange').value = ab.gap; $('#gapVal').textContent = ab.gap;
+    $('#radiusRange').value = ab.radius; $('#radiusVal').textContent = ab.radius;
+    $('#padRange').value = ab.padding; $('#padVal').textContent = ab.padding;
+
+    if (RATIO_PRESETS.includes(ab.ratio)) {
+      $('#ratioSelect').value = ab.ratio;
+      $('#customRatioRow').style.display = 'none';
+    } else {
+      $('#ratioSelect').value = 'custom';
+      $('#customRatioRow').style.display = 'flex';
+      const [rw, rh] = (ab.ratio || '1/1').split('/');
+      $('#customRatioW').value = rw; $('#customRatioH').value = rh;
+    }
+
+    const presetKey = ab.boardW + 'x' + ab.boardH;
+    const presetOpts = Array.from($('#presetSelect').options).map(o=>o.value).filter(v => v !== 'custom');
+    if(!ab.customSize && presetOpts.includes(presetKey)){
+      $('#presetSelect').value = presetKey;
+      $('#customSizeRow').style.display = 'none';
+    } else {
+      $('#presetSelect').value = 'custom';
+      $('#customSizeRow').style.display = 'flex';
+      $('#customW').value = ab.boardW;
+      $('#customH').value = ab.boardH;
+    }
+    document.querySelectorAll('.swatch[data-color]').forEach(sw=>{
+      sw.classList.toggle('active', sw.dataset.color.toLowerCase() === ab.bg.toLowerCase());
+    });
+    $('#customColor').value = ab.bg.startsWith('#') ? ab.bg : (isLightMode ? '#e5e5e5' : '#161616');
+  }
+
+  // --- Dock Listeners ---
+  function updateActiveArtboard(updater, requireFullRender = true) {
+    const ab = getActiveArtboard();
+    if(ab) { 
+      updater(ab); markDirty(); 
+      if(requireFullRender) renderStage(); 
+    }
+  }
+
+  $('#templateSelect').addEventListener('change', (e)=> { updateActiveArtboard(ab => ab.template = e.target.value); saveStateSnapshot(); });
+  $('#colsMinus').onclick = ()=> { updateActiveArtboard(ab => { ab.columns = Math.max(1, ab.columns-1); syncUIToActiveArtboard(); }); saveStateSnapshot(); };
+  $('#colsPlus').onclick = ()=> { updateActiveArtboard(ab => { ab.columns = Math.min(8, ab.columns+1); syncUIToActiveArtboard(); }); saveStateSnapshot(); };
+  
+  $('#gapRange').addEventListener('input', (e) => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.gap = parseInt(e.target.value, 10);
+    $('#gapVal').textContent = ab.gap;
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(boardDOM) boardDOM.style.gap = ab.gap + 'px';
+  });
+  $('#gapRange').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+
+  $('#radiusRange').addEventListener('input', (e) => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.radius = parseInt(e.target.value, 10);
+    $('#radiusVal').textContent = ab.radius;
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(boardDOM) boardDOM.querySelectorAll('.tile').forEach(t => t.style.borderRadius = ab.radius + 'px');
+  });
+  $('#radiusRange').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+
+  $('#padRange').addEventListener('input', (e) => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.padding = parseInt(e.target.value, 10);
+    $('#padVal').textContent = ab.padding;
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(boardDOM) boardDOM.style.padding = ab.padding + 'px';
+  });
+  $('#padRange').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+
+  $('#ratioSelect').addEventListener('change', (e)=> {
+    const v = e.target.value;
+    if (v === 'custom') {
+      const ab = getActiveArtboard(); if(!ab) return;
+      $('#customRatioRow').style.display = 'flex';
+      const [rw, rh] = RATIO_PRESETS.includes(ab.ratio) ? ['1','1'] : (ab.ratio || '1/1').split('/');
+      $('#customRatioW').value = rw; $('#customRatioH').value = rh;
+      updateActiveArtboard(a => a.ratio = `${rw}/${rh}`);
+    } else {
+      $('#customRatioRow').style.display = 'none';
+      updateActiveArtboard(a => a.ratio = v);
+    }
+    saveStateSnapshot();
+  });
+
+  function applyCustomRatio(){
+    const ab = getActiveArtboard(); if(!ab) return;
+    const w = parseFloat($('#customRatioW').value) || 1;
+    const h = parseFloat($('#customRatioH').value) || 1;
+    updateActiveArtboard(a => a.ratio = `${w}/${h}`);
+  }
+  $('#customRatioW').addEventListener('input', applyCustomRatio);
+  $('#customRatioH').addEventListener('input', applyCustomRatio);
+  $('#customRatioW').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+  $('#customRatioH').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+  
+  $('#presetSelect').addEventListener('change', (e)=>{
+    const v = e.target.value;
+    updateActiveArtboard(ab => {
+      if(v === 'custom'){
+        ab.customSize = true;
+        $('#customSizeRow').style.display = 'flex';
+        $('#customW').value = ab.boardW; $('#customH').value = ab.boardH;
+      } else {
+        ab.customSize = false;
+        $('#customSizeRow').style.display = 'none';
+        const [w,h] = v.split('x').map(Number);
+        ab.boardW = w; ab.boardH = h;
+      }
+    });
+    syncUIToActiveArtboard(); saveStateSnapshot();
+  });
+  
+  $('#customW').addEventListener('input', (e) => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.boardW = parseInt(e.target.value, 10) || ab.boardW;
+    ab.customSize = true;
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(boardDOM) boardDOM.style.width = ab.boardW + 'px';
+  });
+  $('#customW').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+
+  $('#customH').addEventListener('input', (e) => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.boardH = parseInt(e.target.value, 10) || ab.boardH;
+    ab.customSize = true;
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(boardDOM) boardDOM.style.minHeight = ab.boardH + 'px';
+  });
+  $('#customH').addEventListener('change', () => { markDirty(); saveStateSnapshot(); });
+
+  document.querySelectorAll('.swatch[data-color]').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const ab = getActiveArtboard(); if(!ab) return;
+      ab.bg = sw.dataset.color;
+      const boardDOM = document.getElementById(`board_${ab.id}`);
+      if(boardDOM) boardDOM.style.background = ab.bg;
+      syncUIToActiveArtboard(); markDirty(); saveStateSnapshot();
+    });
+  });
+  
+  $('#customColor').addEventListener('input', (e) => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.bg = e.target.value;
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(boardDOM) boardDOM.style.background = ab.bg;
+    $('#customColor').parentElement.style.backgroundColor = ab.bg;
+  });
+  $('#customColor').addEventListener('change', () => { syncUIToActiveArtboard(); markDirty(); saveStateSnapshot(); });
+
+  $('#addArtboardBtn').onclick = () => {
+    const tab = getTab();
+    const lastAb = tab.artboards[tab.artboards.length - 1];
+    const newAb = createArtboard(`Board ${tab.artboards.length + 1}`);
+    if(lastAb) {
+      newAb.template = lastAb.template;
+      newAb.columns = lastAb.columns;
+      newAb.gap = lastAb.gap;
+      newAb.radius = lastAb.radius;
+      newAb.ratio = lastAb.ratio;
+      newAb.boardW = lastAb.boardW;
+      newAb.boardH = lastAb.boardH;
+      newAb.customSize = lastAb.customSize;
+      newAb.padding = lastAb.padding;
+      newAb.bg = lastAb.bg;
+      newAb.x = lastAb.x + lastAb.boardW + 80; newAb.y = lastAb.y;
+    }
+    tab.artboards.push(newAb);
+    setActiveArtboard(newAb.id);
+    saveStateSnapshot(); markDirty();
+  };
+
+  $('#addColorBtn').onclick = () => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.tiles.push({ id: 't_' + generateId(), type: 'color', hex: isLightMode ? '#cccccc' : '#333333' });
+    saveStateSnapshot(); markDirty(); renderStage();
+  };
+
+  $('#addTextBtn').onclick = () => {
+    const ab = getActiveArtboard(); if(!ab) return;
+    ab.tiles.push({
+      id: 't_' + generateId(), type: 'text', text: 'Double-click to edit',
+      fontSize: 28, color: '#111111', bg: '#fef2a0', textAlign: 'center'
+    });
+    ab.selectedTileIndex = ab.tiles.length - 1;
+    saveStateSnapshot(); markDirty(); renderStage();
+  };
+
+  $('#addImagesBtn').addEventListener('click', ()=> $('#fileInput').click());
+  $('#fileInput').addEventListener('change', async (e)=>{
+    const ab = getActiveArtboard();
+    if(!ab) { toast("Select an artboard first"); return; }
+    for(const f of Array.from(e.target.files)) {
+      if(!f.type.startsWith('image/')) continue;
+      const { dataUrl } = await compressImage(f, 2400, 0.95);
+      ab.tiles.push({ id: 't_' + generateId(), type: 'image', src: dataUrl, cropX: 50, cropY: 50 });
+    }
+    e.target.value = ''; saveStateSnapshot(); markDirty(); renderStage();
+  });
+
+  // --- MAC TRACKPAD & MOUSE NAVIGATION ---
+  let isPanning = false; let panStartX = 0, panStartY = 0;
+
+  window.addEventListener('gesturestart', (e) => e.preventDefault());
+  window.addEventListener('gesturechange', (e) => e.preventDefault());
+  window.addEventListener('gestureend', (e) => e.preventDefault());
+
+  stage.addEventListener('mousedown', (e) => {
+    if(e.button === 1) e.preventDefault(); 
+    const isOverInteractive = e.target.closest('button, input, select, .tile, .artboard-header');
+    
+    if (!isOverInteractive) {
+      const ab = getActiveArtboard();
+      if (ab) {
+        ab.selectedTileIndex = null;
+        document.querySelectorAll('.tile').forEach(t => t.classList.remove('is-selected'));
+      }
+    }
+    
+    if (isSpacePressed || e.button === 1 || !isOverInteractive) {
+      isPanning = true;
+      stage.classList.add('is-panning');
+      const tab = getTab();
+      panStartX = e.clientX - tab.panX;
+      panStartY = e.clientY - tab.panY;
+      closeAllMenus();
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isDraggingArtboard && draggedArtboardId) {
+      const tab = getTab(); const ab = tab.artboards.find(a => a.id === draggedArtboardId);
+      if (ab) {
+        const dx = (e.clientX - abDragStartX) / (tab.zoom / 100);
+        const dy = (e.clientY - abDragStartY) / (tab.zoom / 100);
+        ab.x = abBaseX + dx; ab.y = abBaseY + dy;
+        const wrapper = document.getElementById(`wrapper_${ab.id}`);
+        if (wrapper) wrapper.style.transform = `translate(${ab.x}px, ${ab.y}px)`;
+        markDirty();
+      }
+      return;
+    }
+
+    if (isPanning) {
+      const tab = getTab();
+      tab.panX = e.clientX - panStartX;
+      tab.panY = e.clientY - panStartY;
+      updateTransform();
+    }
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (isDraggingArtboard) { isDraggingArtboard = false; draggedArtboardId = null; saveStateSnapshot(); }
+    if (isPanning) { isPanning = false; stage.classList.remove('is-panning'); }
+  });
+
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const tab = getTab(); if (!tab) return;
+
+    const isPinch = e.ctrlKey || e.metaKey;
+    const isLineScroll = e.deltaMode === 1 || e.deltaMode === 2;
+    const isTrackpadSwipe = !isPinch && !isLineScroll && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) < 50 || e.deltaY % 1 !== 0);
+
+    if (isPinch || !isTrackpadSwipe) {
+      let delta = e.deltaY;
+      if (isLineScroll) delta *= 15;
+      if (!isPinch && Math.abs(delta) > 50) delta = Math.sign(delta) * 15;
+
+      const zoomFactor = Math.exp(-delta * 0.01);
+      const oldZoom = tab.zoom;
+      let newZoom = Math.min(500, Math.max(10, oldZoom * zoomFactor));
+
+      const rect = stage.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      tab.panX = mouseX - (mouseX - tab.panX) * (newZoom / oldZoom);
+      tab.panY = mouseY - (mouseY - tab.panY) * (newZoom / oldZoom);
+      tab.zoom = newZoom;
+    } else {
+      tab.panX -= e.deltaX;
+      tab.panY -= e.deltaY;
+    }
+    updateTransform();
+  }, { passive: false });
+
+  // --- EXPORT MULTI-ARTBOARD ENGINE ---
+  let pendingExportFormat = null;
+
+  function wrapCanvasText(ctx, text, maxWidth) {
+    const paragraphs = String(text).split('\n');
+    const lines = [];
+    paragraphs.forEach(p => {
+      const words = p.split(' ');
+      let line = '';
+      words.forEach(word => {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line); line = word;
+        } else {
+          line = test;
+        }
+      });
+      lines.push(line);
+    });
+    return lines;
+  }
+
+  async function captureArtboard(ab, scaleMultiplier = 2, transparentBg = false) {
+    if(!ab) return null;
+    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
+
+    const boardDOM = document.getElementById(`board_${ab.id}`);
+    if(!boardDOM) return null;
+    const boardRect = boardDOM.getBoundingClientRect();
+    const scale = (ab.boardW * scaleMultiplier) / boardRect.width;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(ab.boardW * scaleMultiplier);
+    canvas.height = Math.round(boardRect.height * scale);
+    const ctx = canvas.getContext('2d');
+
+    if (!transparentBg) { ctx.fillStyle = ab.bg; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    if (ab.tiles.length === 0) return canvas;
+
+    const tileElements = boardDOM.querySelectorAll('.tile');
+
+    for (let i = 0; i < ab.tiles.length; i++) {
+      const tileData = ab.tiles[i]; const tileEl = tileElements[i];
+      if (!tileEl) continue;
+
+      const rect = tileEl.getBoundingClientRect();
+      const x = (rect.left - boardRect.left) * scale; const y = (rect.top - boardRect.top) * scale;
+      const w = rect.width * scale; const h = rect.height * scale;
+      const radius = ab.radius * scale;
+
+      ctx.save(); ctx.beginPath();
+      if (ctx.roundRect) { ctx.roundRect(x, y, w, h, radius); } else { ctx.rect(x, y, w, h); }
+      ctx.clip();
+
+      if(tileData.type === 'color') {
+        ctx.fillStyle = tileData.hex; ctx.fillRect(x, y, w, h);
+      } else if (tileData.type === 'text') {
+        ctx.fillStyle = tileData.bg || '#fef2a0';
+        ctx.fillRect(x, y, w, h);
+        
+        const fontSize = (tileData.fontSize || 28) * scaleMultiplier;
+        const padding = 16 * scaleMultiplier;
+        
+        ctx.fillStyle = tileData.color || '#111111';
+        ctx.font = `${fontSize}px 'Space Grotesk', sans-serif`;
+        const align = tileData.textAlign || 'center';
+        ctx.textAlign = align; 
+        ctx.textBaseline = 'middle';
+        
+        const lines = wrapCanvasText(ctx, tileData.text || '', w - padding * 2);
+        const lineHeight = fontSize * 1.3;
+        const totalHeight = lines.length * lineHeight;
+        let ly = y + h / 2 - totalHeight / 2 + lineHeight / 2;
+        
+        lines.forEach(line => { 
+          let lx = x + w / 2;
+          if (align === 'left') lx = x + padding;
+          if (align === 'right') lx = x + w - padding;
+          ctx.fillText(line, lx, ly); 
+          ly += lineHeight; 
+        });
+      } else {
+        const img = await new Promise((resolve) => {
+          const image = new Image(); image.crossOrigin = 'anonymous';
+          image.onload = () => resolve(image); image.onerror = () => resolve(null); image.src = tileData.src;
+        });
+        if(img) {
+          const imgRatio = img.naturalWidth / img.naturalHeight; const boxRatio = w / h; let sw, sh, sx, sy;
+          if (imgRatio > boxRatio) {
+            sh = img.naturalHeight; sw = sh * boxRatio; sx = (img.naturalWidth - sw) * ((tileData.cropX || 50) / 100); sy = 0;
+          } else {
+            sw = img.naturalWidth; sh = sw / boxRatio; sx = 0; sy = (img.naturalHeight - sh) * ((tileData.cropY || 50) / 100);
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+        }
+      }
+      ctx.restore();
+    }
+    return canvas;
+  }
+
+  function filenameSafe(tabName, abName){
+    let name = (tabName || 'Saved') + (abName ? '-' + abName : '');
+    return name.trim().replace(/[^a-z0-9\-_ ]/gi,'').replace(/\s+/g,'-').toLowerCase() || 'moodboard';
+  }
+
+  async function exportPNGs(selectedIds, scale, transparent){
+    toast(`Rendering PNGs (${scale}x)...`); document.body.classList.add('exporting'); const tab = getTab();
+    for(const id of selectedIds) {
+      const ab = tab.artboards.find(a => a.id === id); if(!ab) continue;
+      const canvas = await captureArtboard(ab, scale, transparent); if(!canvas) continue;
+      const a = document.createElement('a'); a.download = filenameSafe(tab.name, ab.name) + '.png';
+      a.href = canvas.toDataURL('image/png', 1.0); a.click(); await new Promise(r => setTimeout(r, 400));
+    }
+    document.body.classList.remove('exporting');
+  }
+
+  async function exportMultiPDF(selectedIds){
+    toast('Rendering High-Res PDF…'); document.body.classList.add('exporting');
+    const tab = getTab(); const { jsPDF } = window.jspdf; let pdf = null;
+    for (let i = 0; i < selectedIds.length; i++) {
+      const ab = tab.artboards.find(a => a.id === selectedIds[i]); if(!ab) continue;
+      const canvas = await captureArtboard(ab, 3, false); if(!canvas) continue;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pageW = canvas.width / 3; const pageH = canvas.height / 3;
+      const orientation = pageW >= pageH ? 'landscape' : 'portrait';
+      if (!pdf) { pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH] }); } 
+      else { pdf.addPage([pageW, pageH], orientation); }
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
+    }
+    if(pdf) {
+      let fName = selectedIds.length > 1 ? tab.name + '-boards' : tab.name + '-' + tab.artboards.find(a=>a.id===selectedIds[0]).name;
+      pdf.save(filenameSafe(fName, '') + '.pdf');
+    }
+    document.body.classList.remove('exporting');
+  }
+
+  async function exportZIP(selectedIds, scale = 2){
+    toast(`Packaging ZIP (${scale}x)...`); document.body.classList.add('exporting');
+    const tab = getTab();
+    try {
+      const zip = new JSZip();
+      for(const id of selectedIds) {
+        const ab = tab.artboards.find(a => a.id === id); if(!ab) continue;
+        const canvas = await captureArtboard(ab, scale, false); if(!canvas) continue;
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 1.0));
+        const boardName = filenameSafe(tab.name, ab.name);
+        if(blob) zip.file(boardName + '.png', blob);
+
+        // Export individual tiles
+        const boardDOM = document.getElementById(`board_${ab.id}`);
+        const tileElements = boardDOM ? boardDOM.querySelectorAll('.tile') : [];
+        const tileFolder = zip.folder(boardName + "_tiles");
+        
+        for (let i = 0; i < ab.tiles.length; i++) {
+          const tile = ab.tiles[i];
+          const tileEl = tileElements[i];
+          
+          if (tile.type === 'image' && tile.src) {
+             const base64Data = tile.src.split(',')[1];
+             if (base64Data) {
+               tileFolder.file(`tile_${i+1}_image.png`, base64Data, {base64: true});
+             }
+          } else if (tile.type === 'color' || tile.type === 'text') {
+             let tw = 400, th = 400;
+             let screenToCanvasScale = scale;
+             if (tileEl && boardDOM) {
+                const boardRect = boardDOM.getBoundingClientRect();
+                screenToCanvasScale = (ab.boardW * scale) / boardRect.width;
+                const rect = tileEl.getBoundingClientRect();
+                tw = rect.width * screenToCanvasScale;
+                th = rect.height * screenToCanvasScale;
+             }
+             const tcvs = document.createElement('canvas');
+             tcvs.width = tw || 400; tcvs.height = th || 400;
+             const ctx = tcvs.getContext('2d');
+             
+             if (tile.type === 'color') {
+                ctx.fillStyle = tile.hex; ctx.fillRect(0,0,tw,th);
+             } else if (tile.type === 'text') {
+                ctx.fillStyle = tile.bg || '#fef2a0';
+                ctx.fillRect(0,0,tw,th);
+                
+                const fontSize = (tile.fontSize || 28) * scale;
+                const padding = 16 * scale;
+
+                ctx.fillStyle = tile.color || '#111111';
+                ctx.font = `${fontSize}px 'Space Grotesk', sans-serif`;
+                
+                const align = tile.textAlign || 'center';
+                ctx.textAlign = align; 
+                ctx.textBaseline = 'middle';
+                
+                const lines = wrapCanvasText(ctx, tile.text || '', tw - padding * 2);
+                const lineHeight = fontSize * 1.3;
+                const totalHeight = lines.length * lineHeight;
+                let ly = th / 2 - totalHeight / 2 + lineHeight / 2;
+                
+                lines.forEach(line => { 
+                  let lx = tw / 2;
+                  if (align === 'left') lx = padding;
+                  if (align === 'right') lx = tw - padding;
+                  ctx.fillText(line, lx, ly); 
+                  ly += lineHeight; 
+                });
+             }
+             const tblob = await new Promise(res => tcvs.toBlob(res, 'image/png', 1.0));
+             if(tblob) tileFolder.file(`tile_${i+1}_${tile.type}.png`, tblob);
+          }
+        }
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a'); a.href = url;
+      a.download = filenameSafe(tab.name, 'boards') + '.zip';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast('ZIP downloaded');
+    } catch(err) {
+      toast('ZIP export failed');
+    }
+    document.body.classList.remove('exporting');
+  }
+
+  function updateSelectAllState() {
+    const checks = Array.from(document.querySelectorAll('.ab-export-chk'));
+    const allChecked = checks.every(c => c.checked);
+    $('#selectAllBoards').checked = allChecked && checks.length > 0;
+  }
+  $('#selectAllBoards').onchange = (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.ab-export-chk').forEach(chk => chk.checked = checked);
+  };
+  $('#exportBoardList').addEventListener('change', updateSelectAllState);
+
+  function openExportModal() {
+    const tab = getTab(); if(!tab || tab.artboards.length === 0) { toast("No artboards to export"); return; }
+    const list = $('#exportBoardList'); list.innerHTML = '';
+    const selectAllByDefault = pendingExportFormat === 'zip';
+    tab.artboards.forEach(ab => {
+      const lbl = document.createElement('label'); const chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.value = ab.id; chk.className = 'ab-export-chk';
+      if(selectAllByDefault || ab.id === tab.activeArtboardId) chk.checked = true;
+      lbl.appendChild(chk); lbl.appendChild(document.createTextNode(ab.name)); list.appendChild(lbl);
+    });
+    updateSelectAllState(); $('#exportModal').classList.add('open');
+  }
+
+  $('#cancelExportBtn').onclick = () => { $('#exportModal').classList.remove('open'); pendingExportFormat = null; };
+
+  $('#confirmExportBtn').onclick = async () => {
+    const selectedIds = Array.from(document.querySelectorAll('.ab-export-chk')).filter(chk => chk.checked).map(chk => chk.value);
+    if(selectedIds.length === 0) { toast("Select at least one artboard"); return; }
+    $('#exportModal').classList.remove('open'); const fmt = pendingExportFormat; pendingExportFormat = null;
+    try{
+      if(fmt==='png-1') await exportPNGs(selectedIds, 1, false);
+      else if(fmt==='png-2') await exportPNGs(selectedIds, 2, false);
+      else if(fmt==='png-3') await exportPNGs(selectedIds, 3, false);
+      else if(fmt==='png-alpha') await exportPNGs(selectedIds, 2, true);
+      else if(fmt==='pdf') await exportMultiPDF(selectedIds);
+      else if(fmt==='zip') await exportZIP(selectedIds, 2);
+    }catch(err){ toast('Export failed'); }
+  };
+
+  async function refreshProjectsMenu(){
+    const menu = $('#projectsMenu');
+    menu.innerHTML = '<div class="menu-meta">Loading...</div>';
+    
+    const idx = await getAllSavedProjectSummaries();
+    menu.innerHTML = '';
+    if(!idx || idx.length === 0){
+      menu.innerHTML = '<div class="menu-meta">No saved projects</div>';
+      return;
+    }
+    idx.sort((a,b)=> (b.updatedAt || 0) - (a.updatedAt || 0));
+    idx.forEach(p=>{
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      
+      const openBtn = document.createElement('button');
+      openBtn.style.flex = '1';
+      openBtn.textContent = p.name || 'Untitled';
+      openBtn.onclick = (e) => {
+        e.stopPropagation();
+        loadProject(p.id);
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.innerHTML = '&times;';
+      delBtn.style.flex = 'none';
+      delBtn.style.padding = '8px 12px';
+      delBtn.style.color = 'var(--text-dim)';
+      delBtn.title = 'Delete';
+      delBtn.onclick = async (e)=>{
+        e.stopPropagation();
+        if(confirm('Delete "' + (p.name || 'Untitled') + '"?')) {
+          await deleteProject(p.id);
+        }
+      };
+      
+      row.appendChild(openBtn);
+      row.appendChild(delBtn);
+      menu.appendChild(row);
+    });
+  }
+
+  $('#newBtn').onclick = ()=>{
+    if(dirty && !confirm('Discard unsaved changes?')) return;
+    addNewTab();
+  };
+  $('#saveBtn').onclick = saveProject;
+  $('#saveDeviceBtn').onclick = saveProjectToDevice;
+  $('#undoBtn').onclick = undo;
+  $('#redoBtn').onclick = redo;
+
+  $('#projectsBtn').onclick = async (e)=>{
+    e.stopPropagation();
+    const menu = $('#projectsMenu'); const willOpen = !menu.classList.contains('open');
+    closeAllMenus();
+    if(willOpen){
+      menu.classList.add('open');
+      await refreshProjectsMenu();
+    }
+  };
+
+  $('#exportBtn').onclick = (e)=>{
+    e.stopPropagation();
+    const menu = $('#exportMenu'); const willOpen = !menu.classList.contains('open');
+    closeAllMenus(); 
+    if(willOpen) menu.classList.add('open');
+  };
+
+  $('#exportMenu').addEventListener('click', (e)=>{
+    const fmt = e.target.dataset.fmt; if(!fmt) return;
+    closeAllMenus(); pendingExportFormat = fmt; openExportModal();
+  });
+
+  function closeAllMenus(){
+    document.querySelectorAll('.menu').forEach(m=> m.classList.remove('open'));
+    contextMenu.classList.remove('open');
+  }
+
+  document.addEventListener('click', closeAllMenus);
+
+  refreshAppUI(); saveStateSnapshot();
+})();
+</script>
+</body>
+</html>
