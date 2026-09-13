@@ -1506,17 +1506,6 @@
             el.appendChild(textLayer);
 
             const controls = document.createElement('div'); controls.className = 'text-tile-controls';
-            
-            // Edit Button
-            const editBtn = document.createElement('button');
-            editBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
-            editBtn.title = 'Edit Text';
-            editBtn.onclick = (e) => { 
-              e.stopPropagation(); 
-              textLayer.contentEditable = 'true'; 
-              textLayer.focus(); 
-            };
-            editBtn.addEventListener('mousedown', e => e.stopPropagation());
 
             // Sticky Note Background Color Picker
             const bgColorPicker = document.createElement('input');
@@ -1577,7 +1566,6 @@
             fsPlus.onclick = (e) => { e.stopPropagation(); setFontSize((tile.fontSize || 28) + 2); };
             [fsMinus, fsPlus].forEach(b => b.addEventListener('mousedown', e => e.stopPropagation()));
             
-            controls.appendChild(editBtn);
             controls.appendChild(bgColorPicker);
             controls.appendChild(textColorPicker);
             controls.appendChild(alignLeftBtn);
@@ -1970,9 +1958,14 @@
     if (isPinch || !isTrackpadSwipe) {
       let delta = e.deltaY;
       if (isLineScroll) delta *= 15;
-      if (!isPinch && Math.abs(delta) > 50) delta = Math.sign(delta) * 15;
+      
+      // Smooth out standard mouse wheels by clamping the delta
+      if (!isPinch) delta = Math.sign(delta) * Math.min(Math.abs(delta), 15);
 
-      const zoomFactor = Math.exp(-delta * 0.01);
+      // Use a gentler multiplier for mouse wheels (0.003) compared to trackpad pinch (0.01)
+      const zoomSpeed = isPinch ? 0.01 : 0.003;
+      const zoomFactor = Math.exp(-delta * zoomSpeed);
+      
       const oldZoom = tab.zoom;
       let newZoom = Math.min(500, Math.max(10, oldZoom * zoomFactor));
 
