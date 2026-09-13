@@ -210,10 +210,9 @@
   .color-tile-layer {
     position: absolute; top:-1px; left:-1px; right:-1px; bottom:-1px;
     display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: opacity 0.2s;
   }
-  .color-tile-layer input[type="color"] {
-    position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 10;
-  }
+  .color-tile-layer:hover { opacity: 0.9; }
   .color-tile-badge {
     background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); color: #fff;
     padding: 6px 10px; border-radius: 6px; font-family: 'Space Grotesk', monospace;
@@ -244,11 +243,10 @@
   .text-tile-controls span{ font-size: 10.5px; color: var(--text-dim); min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
   
   .text-color-picker { 
-    width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; 
-    cursor: pointer; background: transparent; outline: none;
+    width: 20px !important; height: 20px !important; padding: 0; border: 1px solid rgba(128,128,128,0.3) !important; 
+    border-radius: 4px; cursor: pointer; transition: transform 0.1s;
   }
-  .text-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
-  .text-color-picker::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 4px; }
+  .text-color-picker:hover { transform: scale(1.15); box-shadow: 0 0 0 1px var(--accent); }
 
   .tile .remove{
     position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%;
@@ -348,7 +346,46 @@
     display:flex; align-items:center; justify-content:center; background:var(--panel-2);
     font-size:10px; color:var(--text-dim); position:relative; overflow:hidden;
   }
-  .swatch.custom input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  /* ---------- Global Custom Color Picker ---------- */
+  .custom-color-picker {
+    position: fixed; background: var(--panel); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: none; flex-direction: column;
+    gap: 12px; z-index: 9999; box-shadow: 0 20px 50px var(--shadow-base); width: 200px;
+  }
+  .custom-color-picker.open { display: flex; }
+  .ccp-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .ccp-swatch { 
+    width: 100%; aspect-ratio: 1; border-radius: 6px; 
+    border: 1px solid rgba(128,128,128,0.3); cursor: pointer; 
+    transition: transform 0.1s, box-shadow 0.1s; 
+  }
+  .ccp-swatch:hover { transform: scale(1.2); box-shadow: 0 0 0 2px var(--accent); z-index: 2; }
+  .ccp-hex { 
+    display: flex; align-items: center; gap: 6px; background: var(--panel-2); 
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; 
+    transition: border-color 0.2s;
+  }
+  .ccp-hex:focus-within { border-color: var(--accent); }
+  .ccp-hex span { color: var(--text-dim); font-size: 13px; font-weight: 500; }
+  .ccp-hex input { 
+    background: transparent; border: none; color: var(--text); outline: none; 
+    width: 100%; font-family: 'Space Grotesk', monospace; text-transform: uppercase; 
+    font-size: 14px; font-weight: 500; letter-spacing: 1px;
+  }
+
+  .ccp-actions { 
+    display: flex; gap: 8px; border-top: 1px solid var(--border); 
+    padding-top: 12px; margin-top: 4px; 
+  }
+  .ccp-action-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); border: 1px solid transparent; border-radius: 6px;
+    padding: 8px; cursor: pointer; color: var(--text); transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .ccp-action-btn:hover { background: var(--border-hover); border-color: var(--border); }
+  .ccp-action-btn svg { width: 14px; height: 14px; stroke: currentColor; }
 
   .toast{
     position:fixed; bottom:84px; left:50%; transform:translateX(-50%) translateY(10px);
@@ -579,9 +616,7 @@
         <div class="swatch active" data-color="#161616" style="background:#161616"></div>
         <div class="swatch" data-color="#e5e5e5" style="background:#e5e5e5"></div>
         <div class="swatch" data-color="#ffffff" style="background:#ffffff"></div>
-        <div class="swatch custom">
-          +<input type="color" id="customColor" value="#161616">
-        </div>
+        <div class="swatch custom" id="btnCustomColor" title="Custom Background Color">+</div>
       </div>
     </div>
   </div>
@@ -593,6 +628,36 @@
       <line x1="5" y1="12" x2="19" y2="12"></line>
     </svg>
   </button>
+
+  <!-- Global Custom Color Picker UI -->
+  <div class="custom-color-picker" id="customColorPicker">
+    <div class="ccp-swatches" id="ccpSwatches"></div>
+    <div class="ccp-hex">
+      <span>#</span>
+      <input type="text" id="ccpHexInput" maxlength="6" spellcheck="false">
+    </div>
+    <div class="ccp-actions">
+      <!-- Corrected Color Palette Icon -->
+      <label class="ccp-action-btn" title="Advanced Color Slider">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+          <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+          <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.464-.652-.464-1.063 0-.832.674-1.5 1.5-1.5H16c3.314 0 6-2.686 6-6 0-5.5-4.5-10-10-10z"/>
+        </svg>
+        <input type="color" id="ccpNative" style="position:absolute; opacity:0; width:1px; height:1px; overflow:hidden; clip:rect(1px, 1px, 1px, 1px);">
+      </label>
+      <!-- Corrected Eyedropper / Pipette Icon -->
+      <button class="ccp-action-btn" id="ccpEyeDropper" title="Pick color from screen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m2 22 1-1h3l9-9"/>
+          <path d="M3 21v-3l9-9"/>
+          <path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
 
 </div>
 
@@ -633,6 +698,95 @@
     safeSetLocal('gridwork-theme', isLightMode ? 'light' : 'dark');
     updateThemeIcon();
   };
+
+  // -------------------------------------------------------------
+  // GLOBAL CUSTOM COLOR PICKER LOGIC
+  // -------------------------------------------------------------
+  const colorPickerUI = $('#customColorPicker');
+  const ccpHexInput = $('#ccpHexInput');
+  const ccpSwatches = $('#ccpSwatches');
+  const ccpNative = $('#ccpNative');
+  const ccpEyeDropper = $('#ccpEyeDropper');
+  
+  let activeColorCallback = null;
+  let activeColorCloseCallback = null;
+
+  const presetColors = [
+    '#111111', '#444444', '#888888', '#CCCCCC', '#E5E5E5', '#FFFFFF',
+    '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF',
+    '#5856D6', '#FF2D55', '#E91E63', '#A2845E', '#FEF2A0', '#E4F4F3'
+  ];
+
+  presetColors.forEach(hex => {
+    const btn = document.createElement('div');
+    btn.className = 'ccp-swatch';
+    btn.style.backgroundColor = hex;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      ccpHexInput.value = hex.replace('#', '');
+      if(activeColorCallback) activeColorCallback(hex);
+    };
+    ccpSwatches.appendChild(btn);
+  });
+
+  ccpHexInput.addEventListener('input', (e) => {
+    let val = e.target.value.replace(/[^0-9A-Fa-f]/g, '').substring(0, 6);
+    e.target.value = val;
+    if (val.length === 6) {
+      if(activeColorCallback) activeColorCallback('#' + val);
+    }
+  });
+
+  ccpNative.addEventListener('input', (e) => {
+    const hex = e.target.value;
+    ccpHexInput.value = hex.replace('#', '');
+    if(activeColorCallback) activeColorCallback(hex);
+  });
+  
+  ccpNative.addEventListener('change', () => {
+    if(activeColorCloseCallback) activeColorCloseCallback();
+  });
+
+  ccpEyeDropper.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!window.EyeDropper) {
+      toast("Eyedropper not supported in this browser");
+      return;
+    }
+    try {
+      const eyeDropper = new EyeDropper();
+      const result = await eyeDropper.open();
+      const hex = result.sRGBHex;
+      ccpHexInput.value = hex.replace('#', '');
+      if(activeColorCallback) activeColorCallback(hex);
+      if(activeColorCloseCallback) activeColorCloseCallback();
+    } catch (err) {
+      // User cancelled
+    }
+  });
+
+  function openColorPicker(x, y, currentColor, onChange, onClose) {
+    closeAllMenus();
+    activeColorCallback = onChange;
+    activeColorCloseCallback = onClose;
+    
+    const safeColor = (currentColor || '#ffffff').substring(0, 7);
+    ccpHexInput.value = safeColor.replace('#', '');
+    ccpNative.value = safeColor;
+    
+    let px = x; let py = y + 15;
+    if (px + 200 > window.innerWidth) px -= 200;
+    if (py + 260 > window.innerHeight) py -= 260; // Accommodate taller menu
+    
+    colorPickerUI.style.left = `${px}px`;
+    colorPickerUI.style.top = `${py}px`;
+    colorPickerUI.classList.add('open');
+  }
+
+  // Prevent clicks inside picker from closing it
+  colorPickerUI.addEventListener('mousedown', e => e.stopPropagation());
+  colorPickerUI.addEventListener('click', e => e.stopPropagation());
+
 
   // -------------------------------------------------------------
   // STATE ARCHITECTURE
@@ -1461,14 +1615,19 @@
             const badge = document.createElement('div'); badge.className = 'color-tile-badge';
             badge.textContent = (tile.hex || '#e5e5e5').toUpperCase();
             
-            const picker = document.createElement('input'); picker.type = 'color'; picker.value = tile.hex || '#e5e5e5';
-            picker.oninput = (e) => { 
-              tile.hex = e.target.value; el.style.background = tile.hex; badge.textContent = tile.hex.toUpperCase();
-            };
-            picker.onchange = () => { saveStateSnapshot(); markDirty(); };
-            
             const layer = document.createElement('div'); layer.className = 'color-tile-layer';
-            layer.appendChild(picker); layer.appendChild(badge);
+            layer.onclick = (e) => {
+              if(e.target.closest('.remove')) return;
+              e.stopPropagation();
+              openColorPicker(e.clientX, e.clientY, tile.hex, (hex) => {
+                tile.hex = hex;
+                el.style.background = tile.hex;
+                badge.textContent = tile.hex.toUpperCase();
+                markDirty();
+              }, () => saveStateSnapshot());
+            };
+
+            layer.appendChild(badge);
             el.appendChild(layer);
           } else if (tile.type === 'text') {
             el.style.background = tile.bg || '#fef2a0';
@@ -1507,32 +1666,36 @@
 
             const controls = document.createElement('div'); controls.className = 'text-tile-controls';
 
-            // Sticky Note Background Color Picker
-            const bgColorPicker = document.createElement('input');
-            bgColorPicker.type = 'color';
+            // Custom Background Color Picker Button
+            const bgColorPicker = document.createElement('button');
             bgColorPicker.className = 'text-color-picker';
-            bgColorPicker.value = tile.bg || '#fef2a0';
+            bgColorPicker.style.backgroundColor = tile.bg || '#fef2a0';
             bgColorPicker.title = 'Note Background Color';
-            bgColorPicker.addEventListener('input', (e) => {
-              tile.bg = e.target.value;
-              el.style.background = tile.bg;
-              markDirty();
-            });
-            bgColorPicker.addEventListener('change', () => saveStateSnapshot());
+            bgColorPicker.onclick = (e) => {
+              e.stopPropagation();
+              openColorPicker(e.clientX, e.clientY, tile.bg, (hex) => {
+                tile.bg = hex;
+                el.style.background = tile.bg;
+                bgColorPicker.style.backgroundColor = tile.bg;
+                markDirty();
+              }, () => saveStateSnapshot());
+            };
             bgColorPicker.addEventListener('mousedown', e => e.stopPropagation());
 
-            // Text Font Color Picker
-            const textColorPicker = document.createElement('input');
-            textColorPicker.type = 'color';
+            // Custom Text Color Picker Button
+            const textColorPicker = document.createElement('button');
             textColorPicker.className = 'text-color-picker';
-            textColorPicker.value = tile.color || '#111111';
+            textColorPicker.style.backgroundColor = tile.color || '#111111';
             textColorPicker.title = 'Text Font Color';
-            textColorPicker.addEventListener('input', (e) => {
-              tile.color = e.target.value;
-              textLayer.style.color = tile.color;
-              markDirty();
-            });
-            textColorPicker.addEventListener('change', () => saveStateSnapshot());
+            textColorPicker.onclick = (e) => {
+              e.stopPropagation();
+              openColorPicker(e.clientX, e.clientY, tile.color, (hex) => {
+                tile.color = hex;
+                textLayer.style.color = tile.color;
+                textColorPicker.style.backgroundColor = tile.color;
+                markDirty();
+              }, () => saveStateSnapshot());
+            };
             textColorPicker.addEventListener('mousedown', e => e.stopPropagation());
             
             // Alignment buttons
@@ -1592,7 +1755,7 @@
           el.appendChild(rm);
 
           el.addEventListener('mousedown', (e) => {
-            if(e.target.closest('.remove') || e.target.closest('.color-tile-layer input') || e.target.closest('.text-color-picker') || e.button === 2) return;
+            if(e.target.closest('.remove') || e.target.closest('.color-tile-layer') || e.target.closest('.text-color-picker') || e.button === 2) return;
             ab.selectedTileIndex = i;
             document.querySelectorAll('.tile').forEach(t => t.classList.remove('is-selected'));
             el.classList.add('is-selected');
@@ -1718,7 +1881,6 @@
     document.querySelectorAll('.swatch[data-color]').forEach(sw=>{
       sw.classList.toggle('active', sw.dataset.color.toLowerCase() === ab.bg.toLowerCase());
     });
-    $('#customColor').value = ab.bg.startsWith('#') ? ab.bg : (isLightMode ? '#e5e5e5' : '#161616');
   }
 
   // --- Dock Listeners ---
@@ -1831,15 +1993,18 @@
       syncUIToActiveArtboard(); markDirty(); saveStateSnapshot();
     });
   });
-  
-  $('#customColor').addEventListener('input', (e) => {
+
+  // Dock Custom Color Picker Launch
+  $('#btnCustomColor').onclick = (e) => {
+    e.stopPropagation();
     const ab = getActiveArtboard(); if(!ab) return;
-    ab.bg = e.target.value;
-    const boardDOM = document.getElementById(`board_${ab.id}`);
-    if(boardDOM) boardDOM.style.background = ab.bg;
-    $('#customColor').parentElement.style.backgroundColor = ab.bg;
-  });
-  $('#customColor').addEventListener('change', () => { syncUIToActiveArtboard(); markDirty(); saveStateSnapshot(); });
+    openColorPicker(e.clientX, e.clientY, ab.bg, (hex) => {
+      ab.bg = hex;
+      const boardDOM = document.getElementById(`board_${ab.id}`);
+      if(boardDOM) boardDOM.style.background = ab.bg;
+      document.querySelectorAll('.swatch[data-color]').forEach(sw => sw.classList.remove('active'));
+    }, () => { syncUIToActiveArtboard(); markDirty(); saveStateSnapshot(); });
+  };
 
   $('#addArtboardBtn').onclick = () => {
     const tab = getTab();
@@ -2324,6 +2489,16 @@
   function closeAllMenus(){
     document.querySelectorAll('.menu').forEach(m=> m.classList.remove('open'));
     contextMenu.classList.remove('open');
+    
+    // Close the custom color picker when clicking away
+    const ccp = document.getElementById('customColorPicker');
+    if (ccp && ccp.classList.contains('open')) {
+      ccp.classList.remove('open');
+      if (activeColorCloseCallback) {
+        activeColorCloseCallback();
+        activeColorCloseCallback = null;
+      }
+    }
   }
 
   document.addEventListener('click', closeAllMenus);
